@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enzi</title>
+  <link rel="stylesheet" href="notch.css">
+</head>
+<body>
+  <div id="island" class="collapsed">
+    <!-- Collapsed pill -->
+    <div id="pill">
+      <div class="pill-left">
+        <img id="pill-art" alt="" hidden>
+        <div id="mascot" class="mascot" data-face="normal">
+          <span class="eyes"><i class="eye"></i><i class="eye"></i></span>
+          <span class="hand">👋</span>
+          <span class="zzz">z</span><span class="zzz">z</span>
+        </div>
+      </div>
+      <div class="pill-center"><span id="pill-text"></span></div>
+      <div class="pill-right">
+        <span id="pill-timer" hidden></span>
+        <div id="pill-eq" class="eq" hidden><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+
+    <!-- Short popups: volume, caps lock, language, power, network, timer, water -->
+    <div id="popup">
+      <div class="pop-icon" id="pop-icon"></div>
+      <div class="pop-body">
+        <div class="pop-title" id="pop-title"></div>
+        <div class="pop-sub" id="pop-sub"></div>
+        <div class="pop-bar" id="pop-bar" hidden><div id="pop-fill"></div></div>
+      </div>
+      <div class="pop-value" id="pop-value"></div>
+      <div class="pop-actions" id="pop-actions"></div>
+    </div>
+
+    <!-- Expanded panel -->
+    <div id="panel">
+      <header>
+        <div class="hdr-left">
+          <div class="hdr-time" id="hdr-time"></div>
+          <div class="hdr-date" id="hdr-date"></div>
+        </div>
+        <nav id="tabs"></nav>
+        <div class="hdr-right">
+          <button class="icon-btn" id="pin-btn" title="Keep open"></button>
+          <button class="icon-btn" id="gear-btn" title="Settings"></button>
+        </div>
+      </header>
+
+      <section data-tab="media">
+        <div class="media-empty" id="media-empty">Nothing playing. Start music in Spotify, a browser or any media app.</div>
+        <div class="media" id="media-box" hidden>
+          <img class="art" id="art" alt="">
+          <div class="meta">
+            <div class="title" id="m-title"></div>
+            <div class="artist" id="m-artist"></div>
+            <div class="progress">
+              <span id="m-cur">0:00</span>
+              <div class="bar" id="m-bar"><div id="m-fill"></div></div>
+              <span id="m-dur">0:00</span>
+            </div>
+            <div class="controls">
+              <button class="icon-btn" data-media="previous" id="b-prev"></button>
+              <button class="icon-btn big" data-media="toggle" id="b-play"></button>
+              <button class="icon-btn" data-media="next" id="b-next"></button>
+            </div>
+          </div>
+          <div class="lyrics" id="lyrics">
+            <div class="ly-line prev" id="ly-prev"></div>
+            <div class="ly-line cur" id="ly-cur"></div>
+            <div class="ly-line next" id="ly-next"></div>
+            <div class="ly-credit">Lyrics by LRCLIB</div>
+          </div>
+        </div>
+      </section>
+
+      <section data-tab="timer">
+        <div class="timer">
+          <svg class="ring" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" class="ring-bg"/>
+            <circle cx="60" cy="60" r="52" class="ring-fg" id="t-ring"/>
+          </svg>
+          <div class="t-center">
+            <div class="t-mode" id="t-mode">Focus</div>
+            <div class="t-time" id="t-time">25:00</div>
+          </div>
+          <div class="t-side">
+            <div class="t-task" id="t-task"></div>
+            <div class="t-modes">
+              <button data-mode="focus">Focus</button>
+              <button data-mode="short">Short break</button>
+              <button data-mode="long">Long break</button>
+            </div>
+            <div class="t-buttons">
+              <button class="primary" id="t-start">Start</button>
+              <button id="t-reset">Reset</button>
+              <button id="t-skip">Skip</button>
+            </div>
+            <div class="t-stats" id="t-stats"></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-tab="todo">
+        <form class="todo-add" id="todo-form">
+          <input id="todo-input" placeholder="Add a task and press Enter" maxlength="200" autocomplete="off">
+        </form>
+        <ul class="todo-list" id="todo-list"></ul>
+        <div class="todo-foot">
+          <span id="todo-stats"></span>
+          <button class="link" id="todo-clear">Clear done</button>
+        </div>
+      </section>
+
+      <section data-tab="shelf">
+        <div class="shelf">
+          <div class="shelf-zone" id="shelf-empty"><div class="drop-icon"></div><span>Drop files, images or links here</span></div>
+          <div class="shelf-row" id="shelf-grid"></div>
+          <button class="shelf-nav prev" id="shelf-prev" title="Scroll left" hidden></button>
+          <button class="shelf-nav next" id="shelf-next" title="Scroll right" hidden></button>
+          <div class="shelf-zone release" id="shelf-drop"><div class="drop-icon"></div><span>Release to add</span></div>
+        </div>
+        <div class="todo-foot">
+          <span id="shelf-stats"></span>
+          <button class="link" id="shelf-clear">Clear shelf</button>
+        </div>
+      </section>
+
+      <section data-tab="water">
+        <div class="water">
+          <div class="bottle"><div class="bottle-fill" id="w-fill"></div></div>
+          <div class="w-info">
+            <div class="w-amount" id="w-amount"></div>
+            <div class="w-sub" id="w-sub"></div>
+            <div class="t-buttons">
+              <button class="primary" id="w-bottle"></button>
+              <button id="w-glass">+250 ml</button>
+              <button id="w-reset">Reset</button>
+            </div>
+            <div class="t-stats" id="w-next"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="shared.js"></script>
+  <script src="notch.js"></script>
+</body>
+</html>
