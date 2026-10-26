@@ -37,6 +37,23 @@ npm run build
 
 `npm run build` creates `Enzi.exe` and an installer under `src-tauri/target/release/`.
 
+## Releasing
+
+GitHub builds the installer and publishes it on the [Releases page](https://github.com/Enzizy/Enzi/releases/latest) whenever a version tag is pushed (see `.github/workflows/release.yml`).
+
+1. Set the new version in `src-tauri/tauri.conf.json` (and `package.json` / `src-tauri/Cargo.toml` to match), then commit and push.
+2. Tag that version and push the tag:
+
+```bash
+git tag v1.0.1
+```
+
+```bash
+git push origin v1.0.1
+```
+
+The release appears after about 10 minutes; progress shows in the repo's **Actions** tab. If the tag doesn't match the version in `tauri.conf.json`, the build stops and says so.
+
 ## Where things are saved
 
 Settings, tasks, the timer, the shelf and water progress are JSON files in `%APPDATA%\com.enzi.notch`. Settings has an **Open data folder** button.
