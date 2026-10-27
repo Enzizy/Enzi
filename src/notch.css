@@ -325,6 +325,7 @@ li.done .check::after { content: ""; width: 5px; height: 9px; border: solid #0b0
 .todo-list .empty { color: var(--muted); justify-content: center; padding-top: 18px; }
 .todo-list .empty:hover { background: none; }
 .todo-foot { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); }
+.foot-actions { display: flex; gap: 14px; }
 .todo-edit { flex: 1; background: var(--chip); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; outline: none; font-size: 13px; }
 
 /* Shelf */

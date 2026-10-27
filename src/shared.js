@@ -118,6 +118,8 @@ const api = (() => {
       real: true,
       invoke: (cmd, args) => T.core.invoke(cmd, args),
       listen: (evt, cb) => T.event.listen(evt, (e) => cb(e.payload)),
+      emit: (evt, payload) => T.event.emit(evt, payload),
+      currentWindow: () => T.window.getCurrentWindow(),
     };
   }
   const handlers = {};

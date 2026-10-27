@@ -7,6 +7,7 @@ mod media;
 mod store;
 mod system;
 mod thumbs;
+mod widget;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -157,9 +158,22 @@ fn load_data(app: AppHandle, name: String) -> Value {
     store::load(&app, &name)
 }
 
+/// Saves data and tells every window, so the notch and the to-do widget stay in sync.
 #[tauri::command]
-fn save_data(app: AppHandle, name: String, value: Value) -> Result<(), String> {
-    store::save(&app, &name, &value)
+fn save_data(app: AppHandle, window: tauri::Window, name: String, value: Value) -> Result<(), String> {
+    store::save(&app, &name, &value)?;
+    let _ = app.emit("data-changed", serde_json::json!({ "name": name, "value": value, "from": window.label() }));
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_todo_widget(app: AppHandle) {
+    widget::show(&app);
+}
+
+#[tauri::command]
+async fn close_todo_widget(app: AppHandle) {
+    widget::close(&app);
 }
 
 #[tauri::command]
@@ -211,8 +225,9 @@ async fn fetch_lyrics(title: String, artist: String, album: String, duration: f6
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", "Show / hide notch", true, None::<&str>)?;
+    let todo = MenuItem::with_id(app, "todo-widget", "Floating to-do list", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Enzi", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&settings, &toggle, &quit])?;
+    let menu = Menu::with_items(app, &[&settings, &toggle, &todo, &quit])?;
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("Enzi")
         .menu(&menu)
@@ -220,6 +235,7 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "settings" => show_settings(app),
             "toggle" => toggle_notch(app),
+            "todo-widget" => widget::show(app),
             "quit" => app.exit(0),
             _ => {}
         })
@@ -250,6 +266,8 @@ fn main() {
             save_settings,
             load_data,
             save_data,
+            open_todo_widget,
+            close_todo_widget,
             file_info,
             open_path,
             reveal_path,
@@ -269,6 +287,7 @@ fn main() {
             }
             build_tray(app)?;
             dragdrop::install(&handle);
+            widget::restore(&handle);
             hooks::start(handle.clone());
             media::start(handle.clone());
             system::start(handle);

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enzi To-do</title>
+  <link rel="stylesheet" href="widget.css">
+</head>
+<body>
+  <div class="card" id="card">
+    <header id="drag">
+      <div class="title"><span class="eyes"><i></i><i></i></span>To-do <span class="count" id="count"></span></div>
+      <button class="hbtn" id="close" title="Close the floating list" aria-label="Close"></button>
+    </header>
+    <form id="form">
+      <input id="input" placeholder="Add a task and press Enter" maxlength="200" autocomplete="off" aria-label="New task">
+    </form>
+    <ul id="list"></ul>
+    <footer>
+      <span id="stats"></span>
+      <button class="link" id="clear">Clear done</button>
+    </footer>
+    <div class="grip" id="grip" title="Press and hold, then drag to resize" aria-hidden="true">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M2 3l11 11M2 7.5l6.5 6.5M2 12l2 2"/>
+      </svg>
+    </div>
+  </div>
+  <script src="shared.js"></script>
+  <script src="widget.js"></script>
+</body>
+</html>

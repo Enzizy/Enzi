@@ -103,7 +103,8 @@
   function scheduleCollapse() {
     clearTimeout(collapseTimer);
     collapseTimer = setTimeout(() => {
-      const typing = document.activeElement && document.activeElement.tagName === "INPUT";
+      // Only counts as typing while Windows has actually given the notch keyboard focus.
+      const typing = document.hasFocus() && document.activeElement && document.activeElement.tagName === "INPUT";
       if (mode === "expanded" && !hovering && !pinned && !dragging && !typing) collapse();
     }, S.general.collapseDelay);
   }
@@ -148,7 +149,11 @@
     autoHidden = !!hide;
     applySize();
   });
-  window.addEventListener("blur", () => { if (!hovering && !pinned && mode === "expanded") collapse(); });
+  // Clicking another app takes focus away: close (unless pinned or the mouse is still on the notch).
+  window.addEventListener("blur", () => {
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    if (!hovering && !pinned && mode === "expanded") collapse();
+  });
   $("pill").addEventListener("click", () => expand());
   $("popup").addEventListener("click", (e) => { if (!e.target.closest("button")) expand(); });
 
@@ -172,7 +177,6 @@
     document.querySelectorAll("section").forEach((s) => s.classList.toggle("active", s.dataset.tab === k));
     document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === k));
     if (k === "shelf") refreshShelf();
-    if (k === "todo") setTimeout(() => mode === "expanded" && $("todo-input").focus({ preventScroll: true }), 50);
   }
 
   $("gear-btn").innerHTML = ICON.gear;
@@ -498,13 +502,7 @@
       li.querySelector('[data-act="del"]').onclick = () => { todo.items = todo.items.filter((i) => i !== item); saveTodo(); renderTodo(); };
       const focusBtn = li.querySelector('[data-act="focus"]');
       focusBtn.hidden = item.done || !S.modules.timer.enabled;
-      focusBtn.onclick = () => {
-        T.task = item.text;
-        if (!T.running) { T.mode = "focus"; T.remaining = modeSec("focus"); timerStart(); }
-        saveTimer();
-        showTab("timer");
-        renderTimer();
-      };
+      focusBtn.onclick = () => focusOnTask(item.text);
       li.querySelector(".txt").ondblclick = () => editTodo(li, item);
       list.appendChild(li);
     }
@@ -547,6 +545,24 @@
     renderTodo();
   };
   $("todo-clear").onclick = () => { todo.items = todo.items.filter((i) => !i.done); saveTodo(); renderTodo(); };
+  $("todo-popout").onclick = () => api.invoke("open_todo_widget");
+
+  function focusOnTask(text) {
+    if (!S.modules.timer.enabled) return;
+    T.task = text;
+    if (!T.running) { T.mode = "focus"; T.remaining = modeSec("focus"); timerStart(); }
+    saveTimer();
+    renderTimer();
+    expand("timer");
+  }
+
+  // The floating widget edits the same list; pick up its changes and its focus requests.
+  api.listen("data-changed", ({ name, value, from }) => {
+    if (name !== "todo" || from === "notch" || !value) return;
+    todo = Object.assign({ items: [], stats: { date: todayKey(), done: 0 } }, value);
+    renderTodo();
+  });
+  api.listen("focus-task", (text) => focusOnTask(text));
 
   // ---------- File shelf ----------
   let shelf = Array.isArray(shelfData) ? shelfData : [];

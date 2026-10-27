@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Permissions for the notch and settings windows",
-  "windows": ["notch", "settings"],
-  "permissions": ["core:default"]
+  "windows": ["notch", "settings", "todo-widget"],
+  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-start-resize-dragging"]
 }

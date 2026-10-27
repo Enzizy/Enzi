@@ -9,6 +9,7 @@ A customizable notch for the top of your Windows screen. Hover over it to open i
 - **Lyrics**: synced lyrics from [LRCLIB](https://lrclib.net), with an adjustable timing offset; can show the current line in the closed notch
 - **Focus timer**: Pomodoro-style focus, short and long breaks, chime, daily session count
 - **To-do list**: add, edit (double-click), complete, and "focus on this task" (starts the timer)
+- **Floating to-do widget**: "Pop out ↗" in the To-do tab (or the tray menu) opens a small always-on-top list. Drag its header to move it; press and hold the bottom-left corner, then drag, to resize. It stays in sync with the notch and reopens where you left it.
 - **File shelf**: drag anything onto the notch and it opens straight to the shelf. Files and folders from Explorer stay where they are; images and files dragged out of a browser are saved into the shelf folder; links are kept as links; dragged text becomes a `.txt` file. Click to open, or show it in its folder. Removing a saved copy deletes it.
 - **Water reminder**: **off by default**, turn it on in Settings if you want it
 - **Popups**: volume, Caps Lock, keyboard language, charger plugged/unplugged, internet connection
