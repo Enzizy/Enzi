@@ -15,6 +15,7 @@ use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MonitorFromPoint, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST, MONITOR_DEFAULTTOPRIMARY,
 };
 use windows::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
 use windows::Win32::System::Threading::{
     CreateMutexW, OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
 };
@@ -72,6 +73,11 @@ fn cursor_inside(app: &AppHandle, win: &tauri::WebviewWindow) -> bool {
     let x = (pt.x - pos.x) as f64 / scale;
     let y = (pt.y - pos.y) as f64 / scale;
     x >= r.x && x <= r.x + r.w && y >= r.y - 2.0 && y <= r.y + r.h
+}
+
+fn left_button_down() -> bool {
+    let state = unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) };
+    state < 0
 }
 
 /// The foreground window, as seen from the primary monitor.
@@ -202,18 +208,28 @@ pub fn start(app: AppHandle) {
         let mut power_prev = power_state();
         let mut tick: u64 = 0;
         let mut names = (0u32, String::new());
+        let mut edge_drag_sent = false;
         loop {
             let state = app.state::<AppState>();
             let user_hidden = state.user_hidden.load(Ordering::Relaxed);
 
             let inside = !user_hidden && !fs_hidden && cursor_inside(&app, &win);
-            if ignoring == inside {
-                ignoring = !inside;
+            let passive = state.hit.lock().unwrap().passive;
+            // A passive (tucked) strip only watches the mouse; clicks go through to the tabs below.
+            let capture = inside && !passive;
+            if ignoring == capture {
+                ignoring = !capture;
                 let _ = win.set_ignore_cursor_events(ignoring);
             }
             if inside != inside_prev {
                 inside_prev = inside;
+                edge_drag_sent = false;
                 let _ = app.emit_to("notch", "hover", inside);
+            }
+            // Dragging something to the tucked edge opens it right away, so drops still work.
+            if inside && passive && !edge_drag_sent && left_button_down() {
+                edge_drag_sent = true;
+                let _ = app.emit_to("notch", "edge-drag", ());
             }
 
             if tick % 8 == 0 {

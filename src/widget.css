@@ -21,24 +21,37 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
 }
-body { padding: 6px; }
 body.preview { background: linear-gradient(135deg, #5a6a8a, #c9b6d9); padding: 24px; }
+body.preview .card { border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
 button, input { font: inherit; color: inherit; background: none; border: 0; }
 button { cursor: pointer; }
 [hidden] { display: none !important; }
 
+/* Fills the window; Windows draws the rounded corners and shadow around it. */
 .card {
   position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius);
   background:
     radial-gradient(120% 70% at 50% 115%, color-mix(in srgb, var(--glow-color) var(--glow), transparent) 0%, transparent 60%),
     var(--notch-bg);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 6px 18px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
+
+/* Invisible resize handles along every edge and corner. */
+.edge { position: absolute; z-index: 5; }
+.edge.n, .edge.s { left: 10px; right: 10px; height: 5px; }
+.edge.e, .edge.w { top: 10px; bottom: 10px; width: 5px; }
+.edge.n { top: 0; cursor: ns-resize; }
+.edge.s { bottom: 0; cursor: ns-resize; }
+.edge.e { right: 0; cursor: ew-resize; }
+.edge.w { left: 0; cursor: ew-resize; }
+.edge.ne, .edge.nw, .edge.se, .edge.sw { width: 12px; height: 12px; }
+.edge.ne { top: 0; right: 0; cursor: nesw-resize; }
+.edge.nw { top: 0; left: 0; cursor: nwse-resize; }
+.edge.se { bottom: 0; right: 0; cursor: nwse-resize; }
+.edge.sw { bottom: 0; left: 0; cursor: nesw-resize; }
 
 header {
   display: flex;
@@ -108,22 +121,20 @@ footer {
 .link { font-size: 10.5px; color: var(--muted); }
 .link:hover { color: var(--fg); }
 
-/* Bottom-left resize grip: press and hold, then drag. */
+/* Bottom-left resize grip: press and drag. */
 .grip {
   position: absolute;
   left: 0;
   bottom: 0;
-  width: 26px;
-  height: 26px;
+  z-index: 6;
+  width: 30px;
+  height: 30px;
   cursor: nesw-resize;
-  border-radius: 0 10px 0 var(--radius);
+  border-radius: 0 10px 0 0;
   color: var(--muted);
   opacity: 0.6;
-  transition: color 0.15s, opacity 0.15s;
+  transition: color 0.15s, opacity 0.15s, background 0.15s;
 }
-.grip svg { position: absolute; left: 5px; bottom: 5px; width: 13px; height: 13px; }
-.grip:hover { opacity: 1; }
-.grip.arming, .grip.active { color: var(--accent); opacity: 1; }
-.grip.arming { animation: arm 0.25s linear; }
-.grip.active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-@keyframes arm { from { background: transparent; } to { background: color-mix(in srgb, var(--accent) 18%, transparent); } }
+.grip svg { position: absolute; left: 6px; bottom: 6px; width: 13px; height: 13px; }
+.grip:hover { opacity: 1; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.grip.active { color: var(--accent); opacity: 1; background: color-mix(in srgb, var(--accent) 18%, transparent); }

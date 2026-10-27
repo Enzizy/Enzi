@@ -21,6 +21,7 @@
       <div class="pill-center"><span id="pill-text"></span></div>
       <div class="pill-right">
         <span id="pill-timer" hidden></span>
+        <span class="weather" id="pill-weather" hidden></span>
         <div id="pill-eq" class="eq" hidden><i></i><i></i><i></i><i></i></div>
       </div>
     </div>
@@ -43,6 +44,7 @@
         <div class="hdr-left">
           <div class="hdr-time" id="hdr-time"></div>
           <div class="hdr-date" id="hdr-date"></div>
+          <div class="hdr-info" id="hdr-info"></div>
         </div>
         <nav id="tabs"></nav>
         <div class="hdr-right">
@@ -56,6 +58,12 @@
         <div class="media" id="media-box" hidden>
           <img class="art" id="art" alt="">
           <div class="meta">
+            <div class="m-source-row">
+              <button class="m-source" id="m-source" title="Choose which player to control">
+                <img id="m-app-icon" alt="" hidden><span id="m-app-name"></span><span class="chev" id="m-chev" hidden>▾</span>
+              </button>
+              <div class="m-switch" id="m-switch" hidden></div>
+            </div>
             <div class="title" id="m-title"></div>
             <div class="artist" id="m-artist"></div>
             <div class="progress">
@@ -67,6 +75,10 @@
               <button class="icon-btn" data-media="previous" id="b-prev"></button>
               <button class="icon-btn big" data-media="toggle" id="b-play"></button>
               <button class="icon-btn" data-media="next" id="b-next"></button>
+              <div class="vol" id="vol-box">
+                <button class="icon-btn" id="vol-btn" title="Mute"></button>
+                <input type="range" id="vol" min="0" max="100" value="50" aria-label="Volume">
+              </div>
             </div>
           </div>
           <div class="lyrics" id="lyrics">
@@ -125,12 +137,47 @@
           <div class="shelf-row" id="shelf-grid"></div>
           <button class="shelf-nav prev" id="shelf-prev" title="Scroll left" hidden></button>
           <button class="shelf-nav next" id="shelf-next" title="Scroll right" hidden></button>
-          <div class="shelf-zone release" id="shelf-drop"><div class="drop-icon"></div><span>Release to add</span></div>
+          <div class="shelf-zone release" id="shelf-drop">
+            <div class="zone zone-add" id="zone-add"><div class="drop-icon"></div><span id="zone-add-text">Release to add</span></div>
+            <div class="zone zone-convert" id="zone-convert"><div class="convert-icon"></div><span>Convert image</span></div>
+          </div>
+          <div class="converter" id="converter" hidden>
+            <div class="conv-head">
+              <span class="conv-title" id="conv-title">Convert image</span>
+              <span class="conv-sub" id="conv-sub"></span>
+            </div>
+            <div class="seg" id="conv-formats">
+              <button data-fmt="png">PNG</button><button data-fmt="jpg">JPG</button><button data-fmt="webp">WebP</button>
+            </div>
+            <div class="conv-quality" id="conv-quality">
+              <span>Quality</span>
+              <input type="range" id="conv-q" min="40" max="100" value="85" aria-label="Quality">
+              <span class="conv-qv" id="conv-qv">85</span>
+            </div>
+            <div class="conv-actions">
+              <span class="conv-status" id="conv-status"></span>
+              <button id="conv-cancel">Cancel</button>
+              <button class="primary" id="conv-go">Convert</button>
+            </div>
+          </div>
         </div>
         <div class="todo-foot">
           <span id="shelf-stats"></span>
           <button class="link" id="shelf-clear">Clear shelf</button>
         </div>
+      </section>
+
+      <section data-tab="clipboard">
+        <input class="clip-search" id="clip-search" placeholder="Search your clipboard" autocomplete="off" aria-label="Search clipboard history">
+        <ul class="clip-list" id="clip-list"></ul>
+        <div class="todo-foot">
+          <span id="clip-stats"></span>
+          <button class="link" id="clip-clear">Clear history</button>
+        </div>
+      </section>
+
+      <section data-tab="actions">
+        <div class="actions" id="actions-grid"></div>
       </section>
 
       <section data-tab="water">

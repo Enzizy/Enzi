@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enzi color picker</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      cursor: crosshair;
+      overflow: hidden;
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+      user-select: none;
+    }
+    #tip {
+      position: fixed;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px 6px 6px;
+      border-radius: 12px;
+      background: rgba(10, 10, 14, 0.92);
+      color: #f4f4f8;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      pointer-events: none;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    #sw { width: 26px; height: 26px; border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3); }
+    #hex { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    small { font-size: 10.5px; color: #9a9aa8; }
+    #hint {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: rgba(10, 10, 14, 0.85);
+      color: #f4f4f8;
+      font-size: 12px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">Click anywhere to copy its color · Esc to cancel</div>
+  <div id="tip"><span id="sw"></span><span id="hex">#000000</span><small>Click to copy</small></div>
+  <script src="shared.js"></script>
+  <script>
+    // Follows the mouse with a live preview of the color underneath; a click copies it.
+    const tip = document.getElementById("tip");
+    let busy = false;
+    document.addEventListener("mousemove", async (e) => {
+      const flip = e.clientX > innerWidth - 200;
+      tip.style.left = (flip ? e.clientX - 190 : e.clientX + 22) + "px";
+      tip.style.top = e.clientY + 22 + "px";
+      tip.style.opacity = 1;
+      if (busy) return;
+      busy = true;
+      const hex = await api.invoke("picker_pixel").catch(() => null);
+      busy = false;
+      if (hex) {
+        document.getElementById("sw").style.background = hex;
+        document.getElementById("hex").textContent = hex;
+      }
+    });
+    document.addEventListener("mousedown", (e) => {
+      if (e.button === 0) api.invoke("picker_pick");
+      else api.invoke("picker_cancel");
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") api.invoke("picker_cancel"); });
+    document.addEventListener("contextmenu", (e) => e.preventDefault());
+    window.focus();
+  </script>
+</body>
+</html>

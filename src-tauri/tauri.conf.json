@@ -34,8 +34,16 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFBRUZCRkEwNzlBNDEzQzgKUldUSUU2UjVvTC92R2lFb1Q3S01Jb1F0ZWNUMWg3N1lURWRTa1p6azlidjB3eGxKejNPWG90T0EK",
+      "endpoints": ["https://github.com/Enzizy/Enzi/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",

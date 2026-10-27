@@ -17,7 +17,11 @@
 
   function applyLook() {
     applyAppearance(S.appearance);
-    document.documentElement.style.setProperty("--radius", Math.max(10, S.appearance.cornerRadius) + "px");
+    // Keep the window's own background in step, so nothing flashes while it resizes.
+    if (api.real) {
+      const n = parseInt(S.appearance.background.slice(1), 16);
+      api.currentWindow().setBackgroundColor?.([(n >> 16) & 255, (n >> 8) & 255, n & 255, 255]).catch(() => {});
+    }
   }
 
   function render() {
@@ -107,24 +111,20 @@
       if (e.button === 0 && !e.target.closest("button")) win.startDragging();
     });
 
-    // Press and hold the bottom-left corner, then drag to resize.
+    // Resize from any edge, corner or the bottom-left grip. It starts the moment the mouse goes down,
+    // and Windows takes over the drag, so it's as smooth as resizing a normal window.
     const grip = $("grip");
-    let holdTimer, idleTimer;
-    grip.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      grip.classList.add("arming");
-      holdTimer = setTimeout(() => {
-        grip.classList.remove("arming");
-        grip.classList.add("active");
-        win.startResizeDragging("SouthWest");
-      }, 250);
+    let idleTimer;
+    document.querySelectorAll("[data-dir]").forEach((el) => {
+      el.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (el === grip) grip.classList.add("active");
+        win.startResizeDragging(el.dataset.dir);
+      });
     });
-    const cancel = () => {
-      clearTimeout(holdTimer);
-      grip.classList.remove("arming");
-    };
-    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => grip.addEventListener(ev, cancel));
+    window.addEventListener("mouseup", () => grip.classList.remove("active"));
 
     // Remember where the widget is and how big, for next time.
     let saveTimer;

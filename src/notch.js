@@ -32,22 +32,38 @@
     x: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
     link: svg('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'),
     tray: svg('<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/><path d="M12 2v7M9 6.5l3 3 3-3"/>'),
+    download: svg('<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>'),
+    clipboard: svg('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'),
+    actions: svg('<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>'),
+    camera: svg('<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/>'),
+    mic: svg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/>'),
+    micOff: svg('<path d="M2 2l20 20M9 9v1a3 3 0 0 0 5.1 2.1M15 9.3V5a3 3 0 0 0-5.9-.7"/><path d="M19 10a7 7 0 0 1-1.1 3.8M5 10a7 7 0 0 0 11.5 5.4M12 17v4M8 21h8"/>'),
+    picker: svg('<path d="M14.5 6.5l3 3M4 20l1-4 9.5-9.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M15 4l2-2 5 5-2 2"/>'),
+    moon: svg('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+    lock: svg('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
+    convert: svg('<path d="M4 7h13l-3-3M20 17H7l3 3"/>'),
+    bluetooth: svg('<path d="M7 7l10 10-5 5V2l5 5L7 17"/>'),
+    calendar: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>'),
+    settings: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'),
     chevLeft: svg('<path d="M15 18l-6-6 6-6"/>'),
     chevRight: svg('<path d="M9 18l6-6-6-6"/>'),
   };
 
   // Load everything up front so the rest of setup runs synchronously, before any event can arrive.
   let S = await loadSettings();
-  const [timerData, todoData, shelfData, waterData] = await Promise.all(["timer", "todo", "shelf", "water"].map(load));
+  const [timerData, todoData, shelfData, waterData, clipData] = await Promise.all(["timer", "todo", "shelf", "water", "clipboard"].map(load));
   let mode = "collapsed";
   let hovering = false, pinned = false, dragging = false, popupWide = false;
   let activeTab = null, expandTimer, collapseTimer, popupTimer;
   // autoHidden: Rust says a browser is at the top. revealed: the user hovered the top edge to bring it back.
-  let autoHidden = false, revealed = false, tuckTimer;
+  let autoHidden = false, revealed = false, tuckTimer, revealTimer;
   const tucked = () => autoHidden && mode === "collapsed" && !revealed;
 
   // ---------- Layout ----------
-  const TABS = [["media", "Music"], ["timer", "Focus timer"], ["todo", "To-do"], ["shelf", "File shelf"], ["water", "Water reminder"]];
+  const TABS = [
+    ["media", "Music"], ["timer", "Focus timer"], ["todo", "To-do"], ["shelf", "File shelf"],
+    ["clipboard", "Clipboard history"], ["actions", "Quick actions"], ["water", "Water reminder"],
+  ];
   const enabledTabs = () => TABS.filter(([k]) => S.modules[k].enabled).map(([k]) => k);
   const hasMedia = () => S.modules.media.enabled && media && media.title;
 
@@ -70,7 +86,7 @@
     const tuck = tucked();
     island.classList.toggle("tucked", tuck);
     // While tucked, only a thin strip along the very top edge reacts to the mouse.
-    api.invoke("set_hit_rect", { x: (window.innerWidth - w) / 2 - 4, y: 0, w: w + 8, h: tuck ? 3 : h + 6 });
+    api.invoke("set_hit_rect", { x: (window.innerWidth - w) / 2 - 4, y: 0, w: w + 8, h: tuck ? 3 : h + 6, passive: tuck });
   }
 
   function setMode(m) {
@@ -109,23 +125,45 @@
     }, S.general.collapseDelay);
   }
 
+  function scheduleExpand() {
+    if (mode === "expanded" || !S.general.expandOnHover) return;
+    clearTimeout(expandTimer);
+    // Skip if a drag already opened the shelf, so this doesn't switch it to another tab.
+    expandTimer = setTimeout(() => hovering && mode !== "expanded" && expand(dragging ? "shelf" : undefined), S.general.expandDelay);
+  }
+
+  function reveal() {
+    clearTimeout(revealTimer);
+    island.classList.remove("peeking");
+    revealed = true;
+    applySize();
+  }
+
   function onHover(inside) {
     hovering = inside;
     if (inside) {
       mascotWake();
       clearTimeout(collapseTimer);
       clearTimeout(tuckTimer);
-      if (autoHidden && !revealed) {
-        revealed = true;
-        applySize();
+      if (tucked()) {
+        // Tucked over a browser: wait a moment so reaching for a tab doesn't open it.
+        // The notch slowly peeks down meanwhile to show it's coming.
+        const wait = S.general.tuckRevealDelay;
+        clearTimeout(revealTimer);
+        island.style.setProperty("--peek-ms", wait + "ms");
+        island.classList.add("peeking");
+        revealTimer = setTimeout(() => {
+          if (!hovering || !tucked()) return;
+          reveal();
+          scheduleExpand();
+        }, wait);
+        return;
       }
-      if (mode !== "expanded" && S.general.expandOnHover) {
-        clearTimeout(expandTimer);
-        // Skip if a drag already opened the shelf, so this doesn't switch it to another tab.
-        expandTimer = setTimeout(() => hovering && mode !== "expanded" && expand(dragging ? "shelf" : undefined), S.general.expandDelay);
-      }
+      scheduleExpand();
     } else {
       clearTimeout(expandTimer);
+      clearTimeout(revealTimer);
+      island.classList.remove("peeking");
       if (mode === "expanded") scheduleCollapse();
       if (revealed && mode !== "expanded") {
         clearTimeout(tuckTimer);
@@ -140,6 +178,12 @@
   }
 
   api.listen("hover", onHover);
+  // Something is being dragged onto the tucked edge: skip the wait so the drop can land.
+  api.listen("edge-drag", () => {
+    if (!tucked()) return;
+    reveal();
+    scheduleExpand();
+  });
   api.listen("auto-hide", (hide) => {
     autoHidden = hide;
     if (!hide) revealed = false;
@@ -177,6 +221,9 @@
     document.querySelectorAll("section").forEach((s) => s.classList.toggle("active", s.dataset.tab === k));
     document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.tab === k));
     if (k === "shelf") refreshShelf();
+    if (k === "clipboard") renderClips();
+    if (k === "actions") renderActions();
+    if (k === "media") refreshVolume();
   }
 
   $("gear-btn").innerHTML = ICON.gear;
@@ -189,9 +236,17 @@
   };
 
   // ---------- Popups ----------
-  function showPopup({ icon, img, title, sub = "", value = "", bar = null, actions = [], ms }) {
+  function showPopup({ icon, img, html, title, sub = "", value = "", bar = null, actions = [], ms, important = false }) {
     if (mode === "expanded" && !actions.length) return;
-    $("pop-icon").innerHTML = img ? `<img src="${img}" alt="">` : ICON[icon] || "";
+    // Quiet mode keeps informational popups away; ones that ask you something still show.
+    if (S.general.quiet && !actions.length && !important) return;
+    if (html) $("pop-icon").innerHTML = html;
+    else if (img) {
+      const im = document.createElement("img");
+      im.src = img;
+      im.alt = "";
+      $("pop-icon").replaceChildren(im);
+    } else $("pop-icon").innerHTML = ICON[icon] || "";
     $("pop-title").textContent = title;
     $("pop-sub").textContent = sub;
     $("pop-value").textContent = value;
@@ -227,7 +282,23 @@
     } else if (e.kind === "network" && P.network) {
       const title = { connected: "Connected", limited: "No internet access", disconnected: "Disconnected" }[e.state] || e.state;
       showPopup({ icon: e.state === "connected" ? "wifi" : "wifiOff", title, sub: "Network" });
+    } else if (e.kind === "bluetooth" && P.bluetooth) {
+      const hasBattery = e.connected && typeof e.battery === "number";
+      showPopup({
+        icon: "bluetooth",
+        title: e.name,
+        sub: e.connected ? "Connected" : "Disconnected",
+        value: hasBattery ? e.battery + "%" : "",
+        bar: hasBattery ? e.battery / 100 : null,
+        ms: 2600,
+      });
+    } else if (e.kind === "color") {
+      const sw = document.createElement("span");
+      sw.className = "swatch";
+      sw.style.background = e.hex;
+      showPopup({ html: sw.outerHTML, title: e.hex, sub: "Copied to clipboard", important: true, ms: 2600 });
     }
+    if (e.kind === "volume" && mode === "expanded" && activeTab === "media") refreshVolume();
   });
 
   // ---------- Clock & pill ----------
@@ -235,6 +306,7 @@
     const now = new Date();
     $("hdr-time").textContent = formatTime(now, S.clock);
     $("hdr-date").textContent = S.clock.showDate ? now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "";
+    renderInfo();
   }
 
   function renderPill() {
@@ -247,6 +319,8 @@
     if (playing) {
       const line = S.modules.lyrics.enabled && S.modules.lyrics.showInPill ? currentLyric() : "";
       text = line || media.title;
+    } else {
+      text = meetingCountdown() || text;
     }
     $("pill-text").textContent = text;
     const eq = $("pill-eq");
@@ -255,6 +329,10 @@
     const timerOn = S.modules.timer.enabled && T.running;
     $("pill-timer").hidden = !timerOn;
     if (timerOn) $("pill-timer").textContent = formatDuration(timerLeft());
+    const w = S.modules.weather;
+    const showWeather = w.enabled && w.showInPill && weather && !weather.error && !playing && !timerOn && !S.general.minimal;
+    $("pill-weather").hidden = !showWeather;
+    if (showWeather) $("pill-weather").textContent = `${weatherIcon(weather.code, weather.isDay)} ${weather.temp}°`;
   }
 
   // ---------- Media & lyrics ----------
@@ -371,6 +449,7 @@
     $("media-box").classList.toggle("no-lyrics", !S.modules.lyrics.enabled);
     if (artUrl && $("art").src !== artUrl) $("art").src = artUrl;
     $("b-play").innerHTML = media.playing ? ICON.pause : ICON.play;
+    renderSource();
     renderProgress();
   }
 
@@ -404,6 +483,66 @@
     posBase = target;
     posAt = performance.now();
     renderProgress();
+  };
+
+  // Which app is playing, and switching between players when several are open.
+  let mediaApp = null;
+  api.listen("media-app", (a) => { mediaApp = a; renderSource(); });
+
+  function renderSource() {
+    const show = S.modules.media.showAppIcon && mediaApp && mediaApp.name;
+    $("m-source").hidden = !show;
+    if (!show) return;
+    const icon = $("m-app-icon");
+    icon.hidden = !mediaApp.icon;
+    if (mediaApp.icon && icon.src !== mediaApp.icon) icon.src = mediaApp.icon;
+    $("m-source").classList.toggle("has-icon", !!mediaApp.icon);
+    $("m-app-name").textContent = mediaApp.name;
+    $("m-chev").hidden = !(media && media.sessions && media.sessions.length > 1);
+  }
+
+  $("m-source").onclick = (e) => {
+    e.stopPropagation();
+    const menu = $("m-switch");
+    if (!media || !media.sessions || media.sessions.length < 2) return;
+    if (!menu.hidden) { menu.hidden = true; return; }
+    menu.innerHTML = "";
+    for (const s of media.sessions) {
+      const b = document.createElement("button");
+      b.textContent = s.name;
+      b.classList.toggle("active", s.id === media.source);
+      b.onclick = () => { api.invoke("media_select", { id: s.id }); menu.hidden = true; };
+      menu.appendChild(b);
+    }
+    const auto = document.createElement("button");
+    auto.textContent = "Follow Windows (automatic)";
+    auto.onclick = () => { api.invoke("media_select", { id: null }); menu.hidden = true; };
+    menu.appendChild(auto);
+    menu.hidden = false;
+  };
+  document.addEventListener("click", () => ($("m-switch").hidden = true));
+
+  // System volume slider in the music tab.
+  let volMuted = false, volTimer;
+  async function refreshVolume() {
+    $("vol-box").hidden = !S.modules.media.volumeSlider;
+    if (!S.modules.media.volumeSlider) return;
+    const v = await api.invoke("get_volume", { mic: false }).catch(() => null);
+    if (!v) return;
+    volMuted = v.muted;
+    $("vol").value = Math.round(v.level * 100);
+    $("vol-btn").innerHTML = v.muted || v.level === 0 ? ICON.mute : ICON.volume;
+  }
+  $("vol").oninput = () => {
+    clearTimeout(volTimer);
+    const level = $("vol").value / 100;
+    $("vol-btn").innerHTML = level === 0 ? ICON.mute : ICON.volume;
+    volTimer = setTimeout(() => api.invoke("set_volume", { mic: false, level }), 40);
+  };
+  $("vol-btn").onclick = async () => {
+    volMuted = !volMuted;
+    await api.invoke("set_volume", { mic: false, muted: volMuted });
+    refreshVolume();
   };
 
   // ---------- Focus timer ----------
@@ -606,8 +745,12 @@
       el.className = "tile" + (f.exists ? "" : " missing");
       el.title = f.exists ? f.path : f.path + " (not found)";
       el.innerHTML = `<div class="thumb"></div><div class="tname"></div><div class="tsize"></div>
-        <div class="acts"><button data-act="reveal" title="Show in folder">${ICON.folder}</button>
+        <div class="acts"><button data-act="convert" title="Convert image">${ICON.convert}</button>
+        <button data-act="reveal" title="Show in folder">${ICON.folder}</button>
         <button data-act="remove" title="Remove from shelf">${ICON.x}</button></div>`;
+      const convertBtn = el.querySelector('[data-act="convert"]');
+      convertBtn.hidden = !(S.modules.shelf.converter && f.exists && isImage(f.path));
+      convertBtn.onclick = () => openConverter([f.path], false);
       const thumb = el.querySelector(".thumb");
       const t = thumbCache.get(f.path);
       if (f.link) thumb.innerHTML = ICON.link;
@@ -679,28 +822,500 @@
   $("shelf-clear").onclick = () => { shelf.forEach(forgetShelfItem); shelf = []; saveShelf(); refreshShelf(); };
 
   // Dragging anything onto the notch opens the shelf; dropping adds it (handled natively in dragdrop.rs).
-  api.listen("shelf-drag", (kind) => {
+  // Images get a split drop area: "Add to shelf" on the left, "Convert image" on the right.
+  let dragImage = false;
+  const IMAGE_EXT = /\.(png|jpe?g|jfif|webp|gif|bmp|tiff?|ico)$/i;
+  const isImage = (p) => IMAGE_EXT.test(p);
+  const zoneAt = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return el && el.closest(".zone");
+  };
+  function endDrag() {
+    dragging = false;
+    document.body.classList.remove("dragging", "drag-image");
+    document.querySelectorAll(".zone").forEach((z) => z.classList.remove("hot"));
+  }
+
+  api.listen("shelf-drag", (p) => {
     if (!S.modules.shelf.enabled) return;
-    if (kind === "enter") {
+    if (p.kind === "enter") {
       dragging = true;
+      dragImage = !!p.image && S.modules.shelf.converter;
       document.body.classList.add("dragging");
+      document.body.classList.toggle("drag-image", dragImage);
+      $("zone-add-text").textContent = dragImage ? "Add to shelf" : "Release to add";
+      $("converter").hidden = true;
       revealed = true;
       expand("shelf");
+    } else if (p.kind === "over") {
+      const zone = dragImage ? zoneAt(p.x, p.y) : null;
+      document.querySelectorAll(".zone").forEach((z) => z.classList.toggle("hot", z === zone));
     } else {
-      dragging = false;
-      document.body.classList.remove("dragging");
+      endDrag();
       if (!hovering) scheduleCollapse();
     }
   });
-  api.listen("shelf-drop", ({ items }) => {
-    dragging = false;
-    document.body.classList.remove("dragging");
-    for (const item of items || []) if (!shelf.includes(item)) shelf.push(item);
-    saveShelf();
+  api.listen("shelf-drop", ({ items, x, y }) => {
+    const toConverter = dragImage && zoneAt(x, y) === $("zone-convert");
+    endDrag();
     expand("shelf");
-    refreshShelf();
+    if (toConverter && items && items.length) {
+      openConverter(items, true);
+    } else {
+      for (const item of items || []) if (!shelf.includes(item)) shelf.push(item);
+      saveShelf();
+      refreshShelf();
+    }
     if (!hovering) scheduleCollapse();
   });
+
+  // ---------- Image converter ----------
+  let convPaths = [], convDropped = false, convFormat = "webp";
+  const fileName = (p) => p.split(/[\\/]/).pop();
+
+  function openConverter(paths, dropped) {
+    convPaths = paths.filter(isImage);
+    convDropped = dropped;
+    if (!convPaths.length) return;
+    convFormat = S.modules.shelf.convertFormat;
+    $("conv-q").value = S.modules.shelf.convertQuality;
+    $("conv-title").textContent = convPaths.length === 1 ? "Convert image" : `Convert ${convPaths.length} images`;
+    $("conv-sub").textContent = convPaths.length === 1 ? fileName(convPaths[0]) : convPaths.map(fileName).join(", ");
+    $("conv-status").textContent = "";
+    renderConverter();
+    $("converter").hidden = false;
+    pinned = true; // keep the notch open while choosing
+  }
+
+  function closeConverter() {
+    $("converter").hidden = true;
+    pinned = $("pin-btn").classList.contains("on");
+    if (!hovering) scheduleCollapse();
+  }
+
+  function renderConverter() {
+    document.querySelectorAll("#conv-formats button").forEach((b) => b.classList.toggle("active", b.dataset.fmt === convFormat));
+    $("conv-quality").style.visibility = convFormat === "png" ? "hidden" : "visible";
+    const q = Number($("conv-q").value);
+    $("conv-qv").textContent = q >= 100 && convFormat === "webp" ? "Lossless" : q;
+  }
+
+  document.querySelectorAll("#conv-formats button").forEach((b) => (b.onclick = () => { convFormat = b.dataset.fmt; renderConverter(); }));
+  $("conv-q").oninput = renderConverter;
+  $("conv-cancel").onclick = () => {
+    if (convDropped) convPaths.forEach(forgetShelfItem); // browser images were only saved for converting
+    closeConverter();
+  };
+  $("conv-go").onclick = async () => {
+    const quality = Number($("conv-q").value);
+    $("conv-go").disabled = true;
+    $("conv-status").textContent = "Converting…";
+    const made = [], failed = [];
+    for (const path of convPaths) {
+      try {
+        made.push(await api.invoke("convert_image", { path, format: convFormat, quality }));
+      } catch (e) {
+        failed.push(String(e));
+      }
+    }
+    $("conv-go").disabled = false;
+    for (const p of made) if (!shelf.includes(p)) shelf.push(p);
+    if (convDropped) convPaths.forEach(forgetShelfItem);
+    saveShelf();
+    refreshShelf();
+    if (failed.length) {
+      $("conv-status").textContent = failed[0];
+      return;
+    }
+    $("conv-status").textContent = made.length === 1 ? `Saved ${fileName(made[0])}` : `Saved ${made.length} images`;
+    setTimeout(closeConverter, 1100);
+  };
+  document.querySelectorAll(".convert-icon").forEach((d) => (d.innerHTML = ICON.convert));
+
+  // ---------- Clipboard history ----------
+  let clips = Array.isArray(clipData && clipData.items) ? clipData.items : [];
+  const saveClips = () => save("clipboard", { items: clips });
+
+  function dropClip(c) {
+    if (c.kind === "image" && c.path) api.invoke("clip_delete_file", { path: c.path });
+  }
+
+  api.listen("clip", (c) => {
+    if (!S.modules.clipboard.enabled) return;
+    if (c.kind === "text") {
+      const old = clips.find((x) => x.kind === "text" && x.text === c.text);
+      if (old) clips = clips.filter((x) => x !== old);
+    }
+    clips.unshift({ id: Date.now() + Math.random(), kind: c.kind, text: c.text, path: c.path, w: c.w, h: c.h, at: Date.now() });
+    while (clips.length > S.modules.clipboard.maxItems) dropClip(clips.pop());
+    saveClips();
+    if (mode === "expanded" && activeTab === "clipboard") renderClips();
+  });
+
+  function timeAgo(t) {
+    const s = Math.round((Date.now() - t) / 1000);
+    if (s < 60) return "now";
+    if (s < 3600) return Math.floor(s / 60) + "m";
+    if (s < 86400) return Math.floor(s / 3600) + "h";
+    return Math.floor(s / 86400) + "d";
+  }
+
+  async function renderClips() {
+    const q = $("clip-search").value.trim().toLowerCase();
+    const list = $("clip-list");
+    const shown = clips.filter((c) => !q || (c.kind === "text" && c.text.toLowerCase().includes(q)));
+    // Image previews come from the same thumbnail cache as the shelf.
+    const need = shown.filter((c) => c.kind === "image" && !thumbCache.has(c.path)).map((c) => c.path);
+    if (need.length) {
+      const res = (await api.invoke("shelf_thumbnails", { paths: need }).catch(() => [])) || [];
+      for (const p of need) thumbCache.set(p, null);
+      for (const r of res) if (r.src) thumbCache.set(r.path, r);
+    }
+    list.innerHTML = "";
+    if (!shown.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = clips.length ? "Nothing matches your search." : "Copy something and it shows up here.";
+      list.appendChild(li);
+    }
+    for (const c of shown) {
+      const li = document.createElement("li");
+      li.title = "Click to copy";
+      if (c.kind === "image") {
+        const img = document.createElement("img");
+        img.className = "clip-img";
+        img.alt = "";
+        const t = thumbCache.get(c.path);
+        if (t) img.src = t.src;
+        const label = document.createElement("span");
+        label.className = "clip-text";
+        label.textContent = `Image · ${c.w}×${c.h}`;
+        li.append(img, label);
+      } else {
+        const text = document.createElement("span");
+        text.className = "clip-text";
+        text.textContent = c.text;
+        li.appendChild(text);
+      }
+      const meta = document.createElement("span");
+      meta.className = "clip-meta";
+      meta.textContent = timeAgo(c.at);
+      const del = document.createElement("button");
+      del.className = "icon-btn";
+      del.title = "Remove";
+      del.innerHTML = ICON.x;
+      del.onclick = (e) => {
+        e.stopPropagation();
+        clips = clips.filter((x) => x !== c);
+        dropClip(c);
+        saveClips();
+        renderClips();
+      };
+      li.append(meta, del);
+      li.onclick = async () => {
+        try {
+          await api.invoke(c.kind === "image" ? "clip_copy_image" : "clip_copy_text", c.kind === "image" ? { path: c.path } : { text: c.text });
+          clips = [c, ...clips.filter((x) => x !== c)];
+          c.at = Date.now();
+          saveClips();
+          li.classList.add("copied");
+          meta.textContent = "Copied";
+          setTimeout(renderClips, 700);
+        } catch {}
+      };
+      list.appendChild(li);
+    }
+    $("clip-stats").textContent = clips.length ? `${clips.length} item${clips.length === 1 ? "" : "s"} · stays on this PC` : "";
+    $("clip-clear").hidden = !clips.length;
+  }
+
+  $("clip-search").oninput = renderClips;
+  $("clip-clear").onclick = () => { clips.forEach(dropClip); clips = []; saveClips(); renderClips(); };
+
+  // ---------- Quick actions ----------
+  let micMuted = false;
+  const ACTIONS = [
+    { id: "screenshot", label: "Screenshot", icon: "camera", run: () => { collapse(); setTimeout(() => api.invoke("quick_action", { name: "screenshot" }), 350); } },
+    { id: "mic", label: "Microphone", icon: () => (micMuted ? "micOff" : "mic"), state: () => (micMuted ? "Muted" : "On"), on: () => micMuted, run: toggleMic },
+    { id: "picker", label: "Color picker", icon: "picker", run: () => { collapse(); setTimeout(() => api.invoke("open_color_picker"), 300); } },
+    {
+      id: "quiet", label: "Quiet mode", icon: "moon", state: () => (S.general.quiet ? "On" : "Off"), on: () => S.general.quiet,
+      run: toggleQuiet, extra: { icon: "settings", title: "Windows notification settings", run: () => api.invoke("quick_action", { name: "notification-settings" }) },
+    },
+    { id: "lock", label: "Lock PC", icon: "lock", run: () => api.invoke("quick_action", { name: "lock" }) },
+  ];
+
+  async function toggleMic() {
+    micMuted = !micMuted;
+    await api.invoke("set_volume", { mic: true, muted: micMuted }).catch(() => {});
+    renderActions();
+    showPopup({ icon: micMuted ? "micOff" : "mic", title: micMuted ? "Microphone muted" : "Microphone on", important: true });
+  }
+
+  function toggleQuiet() {
+    S.general.quiet = !S.general.quiet;
+    api.invoke("save_settings", { settings: S });
+    renderActions();
+  }
+
+  async function renderActions() {
+    const mic = await api.invoke("get_volume", { mic: true }).catch(() => null);
+    if (mic) micMuted = mic.muted;
+    const grid = $("actions-grid");
+    grid.innerHTML = "";
+    for (const a of ACTIONS) {
+      const b = document.createElement("button");
+      b.className = "action" + (a.on && a.on() ? " on" : "");
+      const icon = typeof a.icon === "function" ? a.icon() : a.icon;
+      b.innerHTML = `<span class="a-icon">${ICON[icon]}</span><span class="a-label"></span>${a.state ? '<span class="a-state"></span>' : ""}`;
+      b.querySelector(".a-label").textContent = a.label;
+      if (a.state) b.querySelector(".a-state").textContent = a.state();
+      b.onclick = (e) => { if (!e.target.closest(".a-extra")) a.run(); };
+      if (a.extra) {
+        const x = document.createElement("span");
+        x.className = "a-extra";
+        x.title = a.extra.title;
+        x.innerHTML = ICON[a.extra.icon];
+        x.onclick = (e) => { e.stopPropagation(); a.extra.run(); };
+        b.appendChild(x);
+      }
+      grid.appendChild(b);
+    }
+  }
+
+  // ---------- Weather (Open-Meteo, no account needed) ----------
+  let weather = null;
+  const geoCache = new Map();
+
+  function weatherIcon(code, isDay = 1) {
+    if (code === 0) return isDay ? "☀️" : "🌙";
+    if (code <= 2) return isDay ? "🌤️" : "☁️";
+    if (code === 3) return "☁️";
+    if (code === 45 || code === 48) return "🌫️";
+    if (code >= 51 && code <= 57) return "🌦️";
+    if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return "🌧️";
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "❄️";
+    if (code >= 95) return "⛈️";
+    return "🌡️";
+  }
+
+  async function loadWeather() {
+    const c = S.modules.weather;
+    const city = c.city.trim();
+    if (!c.enabled || !city) { weather = null; renderInfo(); return; }
+    try {
+      let geo = geoCache.get(city.toLowerCase());
+      if (!geo) {
+        const g = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(city)}`).then((r) => r.json());
+        geo = g.results && g.results[0];
+        if (!geo) { weather = { error: `Couldn't find "${city}"` }; renderInfo(); return; }
+        geoCache.set(city.toLowerCase(), geo);
+      }
+      const unit = c.unit === "f" ? "&temperature_unit=fahrenheit" : "";
+      const f = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${geo.latitude}&longitude=${geo.longitude}` +
+          `&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=4${unit}`
+      ).then((r) => r.json());
+      weather = {
+        temp: Math.round(f.current.temperature_2m),
+        code: f.current.weather_code,
+        isDay: f.current.is_day,
+        place: geo.name,
+        daily: f.daily.time.map((d, i) => ({ d, max: Math.round(f.daily.temperature_2m_max[i]), min: Math.round(f.daily.temperature_2m_min[i]), code: f.daily.weather_code[i] })),
+      };
+    } catch {
+      // Offline or the service is down: keep showing the last reading.
+    }
+    renderInfo();
+  }
+
+  // ---------- Calendar: next meeting from a private .ics link ----------
+  let events = [], calError = "";
+  const notified = new Set();
+
+  function unfoldIcs(text) {
+    return text.replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "").split("\n");
+  }
+
+  // Wall-clock time in an IANA zone -> Date. Unknown zones (e.g. Windows names) are treated as local time.
+  function zonedDate(y, mo, d, h, mi, s, tz) {
+    if (!tz) return new Date(y, mo - 1, d, h, mi, s);
+    try {
+      const guess = Date.UTC(y, mo - 1, d, h, mi, s);
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+          .formatToParts(new Date(guess))
+          .map((p) => [p.type, p.value])
+      );
+      const asZone = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+      return new Date(guess - (asZone - guess));
+    } catch {
+      return new Date(y, mo - 1, d, h, mi, s);
+    }
+  }
+
+  // "DTSTART;TZID=Europe/Paris:20261027T103000" -> { date, allDay }
+  function icsDate(params, value) {
+    const m = value.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
+    if (!m) return null;
+    const [, y, mo, d, h, mi, s, z] = m;
+    if (!h) return { date: new Date(+y, +mo - 1, +d), allDay: true };
+    if (z) return { date: new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s)), allDay: false };
+    const tz = (params.match(/TZID=([^;:]+)/) || [])[1];
+    return { date: zonedDate(+y, +mo, +d, +h, +mi, +s, tz), allDay: false };
+  }
+
+  function parseIcs(text) {
+    const out = [];
+    let ev = null;
+    for (const line of unfoldIcs(text)) {
+      if (line === "BEGIN:VEVENT") { ev = { exdates: [] }; continue; }
+      if (line === "END:VEVENT") { if (ev && ev.start) out.push(ev); ev = null; continue; }
+      if (!ev) continue;
+      const i = line.indexOf(":");
+      if (i < 0) continue;
+      const head = line.slice(0, i), value = line.slice(i + 1);
+      const [name, ...rest] = head.split(";");
+      const params = rest.join(";");
+      if (name === "DTSTART") Object.assign(ev, (({ date, allDay }) => ({ start: date, allDay }))(icsDate(params, value) || {}));
+      else if (name === "DTEND") ev.end = (icsDate(params, value) || {}).date;
+      else if (name === "SUMMARY") ev.title = value.replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\n/gi, " ");
+      else if (name === "RRULE") ev.rrule = Object.fromEntries(value.split(";").map((p) => p.split("=")));
+      else if (name === "EXDATE") value.split(",").forEach((v) => { const d = icsDate(params, v); if (d) ev.exdates.push(d.date.getTime()); });
+      else if (name === "RECURRENCE-ID") ev.recurrenceId = (icsDate(params, value) || {}).date;
+      else if (name === "UID") ev.uid = value;
+      else if (name === "STATUS") ev.cancelled = value === "CANCELLED";
+      else if (name === "LOCATION" || name === "DESCRIPTION" || name === "URL") {
+        const link = value.match(/https?:\/\/[^\s\\",<>]+/);
+        if (link && !ev.link) ev.link = link[0];
+      }
+    }
+    return out;
+  }
+
+  const DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+  // Expands an event (and simple DAILY/WEEKLY/MONTHLY repeats) into occurrences in [from, to].
+  function occurrences(ev, from, to) {
+    const dur = (ev.end ? ev.end - ev.start : 30 * 60000) || 30 * 60000;
+    const r = ev.rrule;
+    const list = [];
+    const push = (start) => {
+      if (ev.exdates.some((x) => Math.abs(x - start.getTime()) < 60000)) return;
+      const end = new Date(start.getTime() + dur);
+      if (end >= from && start <= to) list.push({ start, end, title: ev.title || "Event", link: ev.link, uid: ev.uid });
+    };
+    if (!r) { push(ev.start); return list; }
+    const interval = Math.max(1, parseInt(r.INTERVAL || "1", 10));
+    const until = r.UNTIL ? (icsDate("", r.UNTIL) || {}).date : null;
+    const count = r.COUNT ? parseInt(r.COUNT, 10) : Infinity;
+    const byDay = r.BYDAY ? r.BYDAY.split(",").map((d) => DAYS.indexOf(d.slice(-2))) : null;
+    let n = 0;
+    for (let step = 0; step < 5000 && n < count; step++) {
+      const base = new Date(ev.start);
+      if (r.FREQ === "DAILY") base.setDate(base.getDate() + step * interval);
+      else if (r.FREQ === "WEEKLY") base.setDate(base.getDate() + step * 7 * interval);
+      else if (r.FREQ === "MONTHLY") base.setMonth(base.getMonth() + step * interval);
+      else if (r.FREQ === "YEARLY") base.setFullYear(base.getFullYear() + step * interval);
+      else break;
+      if (base > to || (until && base > until)) break;
+      if (r.FREQ === "WEEKLY" && byDay) {
+        const weekStart = new Date(base);
+        weekStart.setDate(base.getDate() - base.getDay());
+        for (let wd = 0; wd < 7 && n < count; wd++) {
+          if (!byDay.includes(wd)) continue;
+          const day = new Date(weekStart);
+          day.setDate(weekStart.getDate() + wd);
+          if (day < ev.start || (until && day > until) || day > to) continue;
+          n++;
+          push(day);
+        }
+      } else {
+        n++;
+        push(base);
+      }
+    }
+    return list;
+  }
+
+  async function loadCalendar() {
+    const c = S.modules.calendar;
+    if (!c.enabled || !c.icsUrl.trim()) { events = []; calError = ""; renderInfo(); return; }
+    try {
+      const all = parseIcs(await api.invoke("fetch_text", { url: c.icsUrl }));
+      const from = new Date(Date.now() - 12 * 3600000), to = new Date(Date.now() + 2 * 86400000);
+      // Moved/edited single occurrences replace their slot in the repeating series.
+      const moved = new Set(all.filter((e) => e.recurrenceId).map((e) => `${e.uid}@${e.recurrenceId.getTime()}`));
+      events = all
+        .filter((e) => !e.allDay && !e.cancelled)
+        .flatMap((e) => occurrences(e, from, to).filter((o) => e.recurrenceId || !moved.has(`${e.uid}@${o.start.getTime()}`)))
+        .sort((a, b) => a.start - b.start);
+      calError = "";
+    } catch (e) {
+      calError = "Couldn't load your calendar";
+    }
+    renderInfo();
+  }
+
+  function nextEvent() {
+    const now = Date.now();
+    return events.find((e) => e.end > now) || null;
+  }
+
+  function meetingCountdown() {
+    const c = S.modules.calendar;
+    const e = c.enabled && nextEvent();
+    if (!e) return "";
+    const mins = Math.ceil((e.start - Date.now()) / 60000);
+    if (mins > c.remindMin) return "";
+    return mins <= 0 ? `${e.title} · now` : `${e.title} in ${mins} min`;
+  }
+
+  function checkMeetings() {
+    const c = S.modules.calendar;
+    if (!c.enabled) return;
+    const now = Date.now();
+    for (const e of events) {
+      const key = `${e.uid}@${e.start.getTime()}`;
+      const mins = (e.start - now) / 60000;
+      const join = e.link ? [{ label: "Join", primary: true, run: () => api.invoke("open_path", { path: e.link }) }] : [];
+      if (mins <= c.remindMin && mins > c.remindMin - 1 && !notified.has(key + "soon")) {
+        notified.add(key + "soon");
+        showPopup({ icon: "calendar", title: e.title, sub: `Starts in ${Math.round(mins)} min · ${formatTime(e.start, { ...S.clock, seconds: false })}`, actions: join, important: true, ms: 8000 });
+      }
+      if (c.popupAtStart && mins <= 0 && mins > -1 && !notified.has(key + "start")) {
+        notified.add(key + "start");
+        showPopup({ icon: "calendar", title: `${e.title} is starting`, sub: formatTime(e.start, { ...S.clock, seconds: false }), actions: join, important: true, ms: 10000 });
+      }
+    }
+  }
+
+  // The small line under the date: weather, then the next meeting.
+  function renderInfo() {
+    const el = $("hdr-info");
+    if (!el) return;
+    const parts = [];
+    if (S.modules.weather.enabled && weather) {
+      if (weather.error) parts.push(weather.error);
+      else parts.push(`${weatherIcon(weather.code, weather.isDay)} ${weather.temp}° ${weather.place}`);
+    }
+    if (S.modules.calendar.enabled) {
+      const e = nextEvent();
+      if (calError) parts.push(calError);
+      else if (e) {
+        const today = new Date().toDateString() === e.start.toDateString();
+        const when = e.start <= Date.now() ? "now" : (today ? "" : "tomorrow ") + formatTime(e.start, { ...S.clock, seconds: false });
+        parts.push(`<span class="${countdownSoon(e) ? "soon" : ""}">📅 ${escapeHtml(e.title)} · ${when}</span>`);
+      }
+    }
+    el.innerHTML = parts.map((p) => (p.startsWith("<span") ? p : escapeHtml(p))).join(" · ");
+    el.title = weather && weather.daily
+      ? weather.daily.map((d) => `${new Date(d.d + "T12:00").toLocaleDateString("en-US", { weekday: "short" })} ${weatherIcon(d.code)} ${d.max}° / ${d.min}°`).join("\n")
+      : "";
+  }
+
+  const countdownSoon = (e) => (e.start - Date.now()) / 60000 <= S.modules.calendar.remindMin;
+  const escapeHtml = (s) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
 
   // ---------- Water reminder (off by default) ----------
   let W = Object.assign({ date: todayKey(), ml: 0, lastAt: Date.now(), snoozeUntil: 0 }, waterData || {});
@@ -820,19 +1435,48 @@
     renderTimer();
     renderTodo();
     renderWater();
+    renderSource();
     if (S.modules.lyrics.enabled) loadLyrics();
     if (mode === "expanded" && !enabledTabs().length) collapse();
     applySize();
   }
 
   let prevTimerCfg = JSON.stringify(S.modules.timer);
+  let prevWeatherCfg = JSON.stringify(S.modules.weather), prevCalendarCfg = JSON.stringify(S.modules.calendar);
   api.listen("settings-changed", (v) => {
     S = mergeDeep(DEFAULTS, v);
     const cfg = JSON.stringify(S.modules.timer);
     if (cfg !== prevTimerCfg && !T.running) T.remaining = modeSec(T.mode);
     prevTimerCfg = cfg;
+    const w = JSON.stringify(S.modules.weather), c = JSON.stringify(S.modules.calendar);
+    if (w !== prevWeatherCfg) { prevWeatherCfg = w; loadWeather(); }
+    if (c !== prevCalendarCfg) { prevCalendarCfg = c; loadCalendar(); }
     applySettings();
+    if (mode === "expanded" && activeTab === "actions") renderActions();
   });
+
+  // ---------- Updates ----------
+  let offeredVersion = null;
+  async function checkForUpdate() {
+    if (!api.real || !S.general.autoUpdate) return;
+    try {
+      const u = await api.invoke("check_update");
+      if (!u || u.version === offeredVersion) return;
+      offeredVersion = u.version;
+      showPopup({
+        icon: "download",
+        title: `Enzi ${u.version} is available`,
+        sub: "Install it now? Enzi restarts when it's done.",
+        actions: [
+          { label: "Install", primary: true, run: () => api.invoke("install_update").catch((e) => showPopup({ icon: "download", title: "Update failed", sub: String(e) })) },
+          { label: "Later", run: () => {} },
+        ],
+        ms: 20000,
+      });
+    } catch {}
+  }
+  setTimeout(checkForUpdate, 20000);
+  setInterval(checkForUpdate, 6 * 3600 * 1000);
 
   // ---------- Main loop ----------
   setInterval(() => {
@@ -843,6 +1487,11 @@
     if (mode === "expanded" && activeTab === "timer") renderTimer();
   }, 250);
   setInterval(checkWater, 30000);
+  setInterval(checkMeetings, 15000);
+  setInterval(loadWeather, 20 * 60000);
+  setInterval(loadCalendar, 10 * 60000);
+  loadWeather();
+  loadCalendar();
 
   // ---------- Browser preview (no Tauri) ----------
   if (!api.real) {
@@ -850,7 +1499,13 @@
     island.addEventListener("mouseenter", () => onHover(true));
     island.addEventListener("mouseleave", () => onHover(false));
     let pos = 12;
-    setInterval(() => api.emit("media", { title: "Preview Song", artist: "Preview Artist", album: "Demo", playing: true, position: (pos += 0.5), duration: 214, source: "Spotify.exe" }), 500);
+    const sessions = [{ id: "Spotify.exe", name: "Spotify" }, { id: "Chrome", name: "Chrome" }];
+    setInterval(() => api.emit("media", { title: "Preview Song", artist: "Preview Artist", album: "Demo", playing: true, position: (pos += 0.5), duration: 214, source: "Spotify.exe", sessions }), 500);
+    setTimeout(() => api.emit("media-app", { id: "Spotify.exe", name: "Spotify", icon: null }), 600);
+    setTimeout(() => {
+      api.emit("clip", { kind: "text", text: "https://github.com/Enzizy/Enzi/releases/latest" });
+      api.emit("clip", { kind: "text", text: "Meeting notes: ship the converter, then clipboard history, then weather and the calendar." });
+    }, 800);
     window.addEventListener("keydown", (e) => {
       if (document.activeElement.tagName === "INPUT") return;
       if (e.key === "t") return api.emit("auto-hide", !autoHidden);

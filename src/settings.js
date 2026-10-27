@@ -11,11 +11,20 @@ const SECTIONS = [
         hint: "So it doesn't cover browser tabs. Hover the very top of the screen to bring it back.",
         options: [["browsers", "When a browser is at the top"], ["maximized", "When any window is at the top"], ["always", "Always"], ["off", "Never"]],
       },
+      { path: "general.tuckRevealDelay", type: "number", label: "Hover time to bring it back", hint: "How long to hold the mouse at the top center while it's tucked away", unit: "ms", min: 0, max: 5000, step: 100 },
       { path: "general.autoHideApps", type: "text", label: "Apps that count as browsers", hint: "Program names separated by commas, like chrome.exe" },
       { path: "general.expandOnHover", type: "toggle", label: "Open when the mouse hovers", hint: "Off: click the notch to open it" },
       { path: "general.expandDelay", type: "number", label: "Hover delay before opening", unit: "ms", min: 0, max: 2000, step: 50 },
       { path: "general.collapseDelay", type: "number", label: "Delay before closing", unit: "ms", min: 0, max: 5000, step: 50 },
       { path: "general.minimal", type: "toggle", label: "Minimal notch", hint: "Smaller pill when closed" },
+      { path: "general.quiet", type: "toggle", label: "Quiet mode", hint: "Hides volume, track and other info popups. Reminders still show." },
+    ],
+  },
+  {
+    title: "Updates", icon: "⬇️",
+    rows: [
+      { type: "updates", label: "Enzi" },
+      { path: "general.autoUpdate", type: "toggle", label: "Check for updates automatically", hint: "Asks before installing anything" },
     ],
   },
   {
@@ -55,6 +64,8 @@ const SECTIONS = [
       { path: "modules.media.showArt", type: "toggle", label: "Show album art" },
       { path: "modules.media.showVisualizer", type: "toggle", label: "Show the animated bars" },
       { path: "modules.media.trackPopup", type: "toggle", label: "Pop up when the song changes" },
+      { path: "modules.media.showAppIcon", type: "toggle", label: "Show which app is playing", hint: "Click it to switch between players" },
+      { path: "modules.media.volumeSlider", type: "toggle", label: "Show a volume slider" },
     ],
   },
   {
@@ -76,7 +87,41 @@ const SECTIONS = [
     ],
   },
   { title: "To-do list", icon: "✅", module: "modules.todo", hint: "Quick tasks, with a button to focus on one", rows: [] },
-  { title: "File shelf", icon: "📁", module: "modules.shelf", hint: "Drag files onto the notch to keep them handy", rows: [] },
+  {
+    title: "File shelf", icon: "📁", module: "modules.shelf", hint: "Drag files onto the notch to keep them handy",
+    rows: [
+      { path: "modules.shelf.converter", type: "toggle", label: "Image converter", hint: "Drag an image in and drop it on \"Convert\"" },
+      { path: "modules.shelf.convertFormat", type: "select", label: "Convert to", options: [["webp", "WebP"], ["png", "PNG"], ["jpg", "JPG"]] },
+      { path: "modules.shelf.convertQuality", type: "range", label: "Quality", hint: "For JPG and WebP; 100 makes WebP lossless", min: 40, max: 100, unit: "" },
+    ],
+  },
+  {
+    title: "Clipboard history", icon: "📋", module: "modules.clipboard", hint: "Everything you copy, one click away. Stays on this PC.",
+    rows: [
+      { path: "modules.clipboard.images", type: "toggle", label: "Keep copied images too" },
+      { path: "modules.clipboard.maxItems", type: "number", label: "Remember up to", unit: "items", min: 5, max: 200, step: 5 },
+    ],
+  },
+  { title: "Quick actions", icon: "⚡", module: "modules.actions", hint: "Screenshot, microphone, color picker, quiet mode and lock", rows: [] },
+  {
+    title: "Weather", icon: "🌤️", module: "modules.weather", hint: "From Open-Meteo, no account needed",
+    rows: [
+      { path: "modules.weather.city", type: "text", label: "City", hint: "For example: Manila, London or New York" },
+      { path: "modules.weather.unit", type: "select", label: "Units", options: [["c", "Celsius (°C)"], ["f", "Fahrenheit (°F)"]] },
+      { path: "modules.weather.showInPill", type: "toggle", label: "Show in the closed notch" },
+    ],
+  },
+  {
+    title: "Calendar", icon: "📅", module: "modules.calendar", hint: "Your next meeting, from a private calendar link",
+    rows: [
+      {
+        path: "modules.calendar.icsUrl", type: "text", wide: true, label: "Calendar link (.ics)",
+        hint: "Google Calendar: Settings → your calendar → \"Secret address in iCal format\". Outlook: Settings → Calendar → Shared calendars → Publish → ICS.",
+      },
+      { path: "modules.calendar.remindMin", type: "number", label: "Remind me before", unit: "min", min: 1, max: 60 },
+      { path: "modules.calendar.popupAtStart", type: "toggle", label: "Pop up when a meeting starts" },
+    ],
+  },
   {
     title: "Water reminder", icon: "💧", module: "modules.water", hint: "Reminds you to drink during the day",
     rows: [
@@ -95,6 +140,7 @@ const SECTIONS = [
       { path: "popups.language", type: "toggle", label: "Keyboard language" },
       { path: "popups.power", type: "toggle", label: "Charger plugged in / unplugged" },
       { path: "popups.network", type: "toggle", label: "Internet connection changes" },
+      { path: "popups.bluetooth", type: "toggle", label: "Bluetooth devices connecting", hint: "With battery level when the device reports it" },
       { path: "popups.durationMs", type: "number", label: "How long popups stay", unit: "ms", min: 500, max: 10000, step: 100 },
     ],
   },
@@ -171,8 +217,41 @@ function paletteControl() {
   return wrap;
 }
 
+function updatesControl() {
+  const status = el("span", { class: "upd-status" });
+  const btn = el("button", { class: "btn", type: "button" }, "Check for updates");
+  api.invoke("app_version").then((v) => (status.textContent = v ? `Version ${v}` : "")).catch(() => {});
+  const install = async () => {
+    btn.disabled = true;
+    status.textContent = "Installing… Enzi will restart";
+    try {
+      await api.invoke("install_update");
+    } catch (e) {
+      status.textContent = String(e);
+      btn.disabled = false;
+    }
+  };
+  btn.onclick = async () => {
+    btn.disabled = true;
+    status.textContent = "Checking…";
+    try {
+      const u = await api.invoke("check_update");
+      if (u) {
+        status.textContent = `Version ${u.version} is available`;
+        btn.textContent = "Install update";
+        btn.onclick = install;
+      } else status.textContent = "You're up to date";
+    } catch (e) {
+      status.textContent = "Couldn't check right now";
+    }
+    btn.disabled = false;
+  };
+  return el("span", { class: "upd" }, status, btn);
+}
+
 function control(row) {
   if (row.type === "palette") return paletteControl();
+  if (row.type === "updates") return updatesControl();
   const value = getPath(S, row.path);
   if (row.type === "toggle") return toggle(row.path);
   if (row.type === "color") {
@@ -249,7 +328,7 @@ function render() {
     if (sec.rows.length) {
       const rows = el("div", { class: "rows" });
       for (const row of sec.rows) {
-        const cls = row.type === "palette" ? "row stack" : "row";
+        const cls = row.type === "palette" || row.wide ? "row stack" : "row";
         rows.append(el("div", { class: cls }, labelFor(row.label, row.hint), control(row)));
       }
       card.append(rows);

@@ -2,9 +2,49 @@
 //! Its open state and geometry (physical pixels) live in todo_widget.json.
 
 use serde_json::{json, Value};
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
+use tauri::window::Color;
+use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use windows::Win32::Foundation::HWND;
+use windows::Win32::Graphics::Dwm::{
+    DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
+};
 
 use crate::store;
+
+/// The notch background from settings, so the window never flashes another color while resizing.
+fn background(app: &AppHandle) -> Color {
+    let hex = store::load(app, "settings")
+        .pointer("/appearance/background")
+        .and_then(Value::as_str)
+        .map(|s| s.trim_start_matches('#').to_string())
+        .unwrap_or_default();
+    match u32::from_str_radix(&hex, 16) {
+        Ok(n) if hex.len() == 6 => Color((n >> 16) as u8, (n >> 8) as u8, n as u8, 255),
+        _ => Color(0, 0, 0, 255),
+    }
+}
+
+/// Lets Windows draw the rounded corners and soft shadow, with no outline.
+fn native_frame(win: &WebviewWindow) {
+    let Ok(handle) = win.hwnd() else { return };
+    let hwnd = HWND(handle.0 as _);
+    unsafe {
+        let round = DWMWCP_ROUND;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            &round as *const _ as *const _,
+            std::mem::size_of_val(&round) as u32,
+        );
+        let no_border = DWMWA_COLOR_NONE;
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_BORDER_COLOR,
+            &no_border as *const _ as *const _,
+            std::mem::size_of_val(&no_border) as u32,
+        );
+    }
+}
 
 const LABEL: &str = "todo-widget";
 
@@ -44,14 +84,17 @@ pub fn show(app: &AppHandle) {
         .title("Enzi To-do")
         .inner_size(280.0, 340.0)
         .min_inner_size(200.0, 150.0)
+        // A solid window (not transparent) moves and resizes smoothly; Windows rounds it and adds the shadow.
         .decorations(false)
-        .transparent(true)
-        .shadow(false)
+        .transparent(false)
+        .shadow(true)
+        .background_color(background(app))
         .always_on_top(true)
         .skip_taskbar(true)
         .resizable(true)
         .visible(false);
     let Ok(win) = builder.build() else { return };
+    native_frame(&win);
     match saved_geometry(app) {
         Some((x, y, w, h)) => {
             let _ = win.set_size(PhysicalSize::new(w, h));

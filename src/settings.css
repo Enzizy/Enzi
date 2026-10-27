@@ -123,6 +123,20 @@ select:hover, select:focus { border-color: var(--accent); outline: none; }
   outline: none;
 }
 .text-input:hover, .text-input:focus { border-color: var(--accent); }
+.row.stack .text-input { width: 100%; }
+
+.upd { display: flex; align-items: center; gap: 10px; }
+.upd-status { font-size: 12px; color: var(--muted); }
+.btn {
+  padding: 6px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: 0.6; cursor: default; }
 
 /* Number stepper: [-] value [+] unit */
 .stepper { display: flex; align-items: center; gap: 8px; flex: none; }

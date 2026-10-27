@@ -5,11 +5,14 @@ const DEFAULTS = {
     startWithWindows: false,
     hideFullscreen: true,
     autoHide: "browsers",
+    tuckRevealDelay: 1500,
     autoHideApps: "chrome.exe, msedge.exe, firefox.exe, brave.exe, opera.exe, vivaldi.exe, arc.exe, zen.exe, floorp.exe, librewolf.exe, waterfox.exe, chromium.exe, thorium.exe, browser.exe",
     expandOnHover: true,
     expandDelay: 150,
     collapseDelay: 450,
     minimal: false,
+    autoUpdate: true,
+    quiet: false,
   },
   appearance: {
     palette: "midnight",
@@ -31,14 +34,18 @@ const DEFAULTS = {
   },
   clock: { format: "12", seconds: false, showDate: true },
   modules: {
-    media: { enabled: true, showArt: true, showVisualizer: true, trackPopup: true },
+    media: { enabled: true, showArt: true, showVisualizer: true, trackPopup: true, showAppIcon: true, volumeSlider: true },
     lyrics: { enabled: true, offsetMs: 0, showInPill: false },
     timer: { enabled: true, focusMin: 25, shortBreakMin: 5, longBreakMin: 15, longEvery: 4, autoStartBreaks: false, sound: true },
     todo: { enabled: true },
-    shelf: { enabled: true },
+    shelf: { enabled: true, converter: true, convertFormat: "webp", convertQuality: 85 },
+    clipboard: { enabled: true, images: true, maxItems: 30 },
+    actions: { enabled: true },
+    weather: { enabled: true, city: "", unit: "c", showInPill: false },
+    calendar: { enabled: true, icsUrl: "", remindMin: 10, popupAtStart: true },
     water: { enabled: false, goalMl: 2000, bottleMl: 500, intervalMin: 60, startHour: 8, endHour: 22 },
   },
-  popups: { volume: true, caps: true, language: true, power: true, network: true, durationMs: 1800 },
+  popups: { volume: true, caps: true, language: true, power: true, network: true, bluetooth: true, durationMs: 1800 },
 };
 
 const PALETTES = {
@@ -142,6 +149,16 @@ const api = (() => {
         case "file_info": return args.paths.map((p) => ({ path: p, name: p.split(/[\\/]/).pop(), ext: (p.split(".").pop() || "").toLowerCase(), exists: true, isDir: false, size: 1234 }));
         case "fetch_lyrics": return { syncedLyrics: "[00:00.00] Preview lyrics line one\n[00:05.00] The notch keeps the beat\n[00:10.00] Line three is here\n[00:15.00] And a fourth one\n[00:20.00] Looping around" };
         case "media_control": return true;
+        case "get_volume": return { level: args.mic ? 0.8 : 0.45, muted: false };
+        case "app_version": return "1.0.2";
+        case "check_update": return null;
+        case "convert_image": return args.path.replace(/\.[^.]+$/, "." + args.format);
+        case "fetch_text": {
+          const pad2 = (n) => String(n).padStart(2, "0");
+          const d = new Date(Date.now() + 8 * 60000);
+          const stamp = `${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}00Z`;
+          return `BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:demo\nDTSTART:${stamp}\nSUMMARY:Team standup\nLOCATION:https://meet.google.com/abc-defg-hij\nEND:VEVENT\nEND:VCALENDAR`;
+        }
         case "shelf_thumbnails": {
           const photo = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><defs><linearGradient id="g" x2="1" y2="1"><stop offset="0" stop-color="#ff9a8b"/><stop offset="1" stop-color="#6a5cff"/></linearGradient></defs><rect width="160" height="120" fill="url(#g)"/><circle cx="118" cy="34" r="16" fill="#ffe38a"/><path d="M0 120 L55 60 L95 100 L120 80 L160 120Z" fill="#2b2250"/></svg>');
           return args.paths.map((p) => ({ path: p, src: /\.(png|jpe?g|webp|gif)$/i.test(p) ? photo : null, kind: "thumb" }));

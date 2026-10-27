@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
@@ -146,24 +146,27 @@ fn save_copy(app: &AppHandle, name: &str, bytes: &[u8]) -> Option<String> {
     Some(path.to_string_lossy().to_string())
 }
 
-/// Files dragged from browsers and some apps arrive as FileGroupDescriptorW + FileContents.
-fn virtual_files(app: &AppHandle, data: &IDataObject) -> Vec<String> {
+/// Names in a FileGroupDescriptorW (FILEDESCRIPTORW is 592 bytes; the name starts 72 bytes in).
+fn virtual_names(data: &IDataObject) -> Vec<String> {
     let Some(desc) = read_format(data, registered_format("FileGroupDescriptorW"), -1) else { return Vec::new() };
     if desc.len() < 4 {
         return Vec::new();
     }
     let count = u32::from_le_bytes([desc[0], desc[1], desc[2], desc[3]]) as usize;
-    // FILEDESCRIPTORW is 592 bytes; the file name starts 72 bytes in.
     const ITEM: usize = 592;
     const NAME: usize = 72;
+    (0..count.min(64))
+        .map(|i| 4 + i * ITEM)
+        .take_while(|start| desc.len() >= start + ITEM)
+        .map(|start| utf16_until_nul(&desc[start + NAME..start + ITEM]))
+        .collect()
+}
+
+/// Files dragged from browsers and some apps arrive as FileGroupDescriptorW + FileContents.
+fn virtual_files(app: &AppHandle, data: &IDataObject) -> Vec<String> {
     let contents = registered_format("FileContents");
     let mut saved = Vec::new();
-    for i in 0..count.min(64) {
-        let start = 4 + i * ITEM;
-        if desc.len() < start + ITEM {
-            break;
-        }
-        let name = utf16_until_nul(&desc[start + NAME..start + ITEM]);
+    for (i, name) in virtual_names(data).into_iter().enumerate() {
         if let Some(bytes) = read_format(data, contents, i as i32) {
             if let Some(path) = save_copy(app, &name, &bytes) {
                 saved.push(path);
@@ -214,10 +217,25 @@ fn supported(data: &IDataObject) -> bool {
         || has_format(data, CF_UNICODETEXT)
 }
 
+/// True when everything being dragged is an image, so the notch can offer "Convert".
+fn all_images(data: &IDataObject) -> bool {
+    let paths = hdrop_paths(data);
+    let names = if paths.is_empty() { virtual_names(data) } else { paths };
+    !names.is_empty() && names.iter().all(|n| crate::convert::is_image(n))
+}
+
+/// Screen point -> CSS pixels inside the notch window.
+fn to_page(app: &AppHandle, pt: &POINTL) -> (f64, f64) {
+    let Some(win) = app.get_webview_window("notch") else { return (-1.0, -1.0) };
+    let (Ok(pos), Ok(scale)) = (win.outer_position(), win.scale_factor()) else { return (-1.0, -1.0) };
+    ((pt.x - pos.x) as f64 / scale, (pt.y - pos.y) as f64 / scale)
+}
+
 #[implement(IDropTarget)]
 struct DropTarget {
     app: AppHandle,
     accepting: Cell<bool>,
+    last_over: Cell<Option<Instant>>,
 }
 
 impl DropTarget_Impl {
@@ -240,19 +258,27 @@ impl IDropTarget_Impl for DropTarget_Impl {
         self.accepting.set(enabled && data.is_some_and(supported));
         self.effect(effect);
         if self.accepting.get() {
-            let _ = self.app.emit_to("notch", "shelf-drag", "enter");
+            let image = data.is_some_and(all_images);
+            let _ = self.app.emit_to("notch", "shelf-drag", json!({ "kind": "enter", "image": image }));
         }
         Ok(())
     }
 
-    fn DragOver(&self, _keys: MODIFIERKEYS_FLAGS, _pt: &POINTL, effect: *mut DROPEFFECT) -> windows::core::Result<()> {
+    fn DragOver(&self, _keys: MODIFIERKEYS_FLAGS, pt: &POINTL, effect: *mut DROPEFFECT) -> windows::core::Result<()> {
         self.effect(effect);
+        // Where the pointer is, so the notch can highlight "Add to shelf" or "Convert". Throttled.
+        let due = self.last_over.get().map_or(true, |t| t.elapsed() >= Duration::from_millis(40));
+        if self.accepting.get() && due {
+            self.last_over.set(Some(Instant::now()));
+            let (x, y) = to_page(&self.app, pt);
+            let _ = self.app.emit_to("notch", "shelf-drag", json!({ "kind": "over", "x": x, "y": y }));
+        }
         Ok(())
     }
 
     fn DragLeave(&self) -> windows::core::Result<()> {
         if self.accepting.replace(false) {
-            let _ = self.app.emit_to("notch", "shelf-drag", "leave");
+            let _ = self.app.emit_to("notch", "shelf-drag", json!({ "kind": "leave" }));
         }
         Ok(())
     }
@@ -261,7 +287,7 @@ impl IDropTarget_Impl for DropTarget_Impl {
         &self,
         data: Option<&IDataObject>,
         _keys: MODIFIERKEYS_FLAGS,
-        _pt: &POINTL,
+        pt: &POINTL,
         effect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
         self.effect(effect);
@@ -269,13 +295,15 @@ impl IDropTarget_Impl for DropTarget_Impl {
             return Ok(());
         }
         let items = data.map(|d| extract(&self.app, d)).unwrap_or_default();
-        let _ = self.app.emit_to("notch", "shelf-drop", json!({ "items": items }));
+        let (x, y) = to_page(&self.app, pt);
+        let _ = self.app.emit_to("notch", "shelf-drop", json!({ "items": items, "x": x, "y": y }));
         Ok(())
     }
 }
 
 unsafe fn register(app: &AppHandle, hwnd: HWND) {
-    let target: IDropTarget = DropTarget { app: app.clone(), accepting: Cell::new(false) }.into();
+    let target: IDropTarget =
+        DropTarget { app: app.clone(), accepting: Cell::new(false), last_over: Cell::new(None) }.into();
     let _ = RevokeDragDrop(hwnd);
     let _ = RegisterDragDrop(hwnd, &target);
 }
