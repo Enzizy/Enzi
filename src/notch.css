@@ -242,7 +242,7 @@ nav svg, .icon-btn svg { width: 17px; height: 17px; }
 }
 .icon-btn:hover { background: var(--chip); color: var(--fg); }
 .icon-btn.on { color: var(--accent); }
-.icon-btn.big { width: 40px; height: 40px; border-radius: 50%; background: var(--fg); color: #000; }
+.icon-btn.big { width: 38px; height: 38px; flex: none; border-radius: 50%; background: var(--fg); color: #000; }
 .icon-btn.big:hover { background: #fff; color: #000; }
 .icon-btn.big svg { width: 20px; height: 20px; }
 
@@ -276,8 +276,9 @@ button.link:hover { color: var(--fg); }
 .bar { flex: 1; height: 5px; border-radius: 3px; background: var(--chip); cursor: pointer; position: relative; }
 .bar:hover { height: 7px; }
 #m-fill { height: 100%; width: 0; background: var(--fg); border-radius: 3px; }
-.controls { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 6px; }
-.lyrics { width: 210px; flex: none; display: flex; flex-direction: column; gap: 4px; align-self: stretch; justify-content: center; }
+.controls { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.controls > .icon-btn { flex: none; }
+.lyrics { width: 190px; flex: none; display: flex; flex-direction: column; gap: 4px; align-self: stretch; justify-content: center; }
 .media.no-lyrics .lyrics { display: none; }
 .ly-line { font-size: 12px; color: var(--muted); line-height: 1.3; transition: all 0.3s ease; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ly-line.cur { font-size: 15px; font-weight: 700; color: var(--fg); }
@@ -537,10 +538,32 @@ body.drag-image .zone { background: rgba(255, 255, 255, 0.04); }
 .m-switch button { display: block; width: 100%; text-align: left; padding: 6px 8px; border-radius: 7px; font-size: 12px; }
 .m-switch button:hover { background: var(--chip-hover); }
 .m-switch button.active { color: var(--accent); font-weight: 700; }
-.vol { display: flex; align-items: center; gap: 2px; margin-left: 6px; }
-.vol .icon-btn { width: 26px; height: 26px; }
+.vol { display: flex; align-items: center; gap: 4px; margin-left: auto; min-width: 0; }
+.vol .icon-btn { width: 26px; height: 26px; flex: none; }
 .vol .icon-btn svg { width: 15px; height: 15px; }
-.vol input { width: 74px; accent-color: var(--fg); }
+/* Same look as the progress bar: thin track, filled part in the text color, small knob. */
+.vol input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 84px;
+  min-width: 40px;
+  height: 4px;
+  margin: 0;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--fg) 0 var(--fill, 50%), var(--chip) var(--fill, 50%) 100%);
+  cursor: pointer;
+  outline: none;
+}
+.vol input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--fg);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.vol:hover input::-webkit-slider-thumb, .vol input:active::-webkit-slider-thumb, .vol input:focus-visible::-webkit-slider-thumb { opacity: 1; }
 
 /* Clipboard */
 .clip-search {

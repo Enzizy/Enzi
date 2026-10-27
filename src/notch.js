@@ -426,8 +426,11 @@
   }
 
   function renderLyrics() {
-    const msg = { idle: "", loading: "Loading lyrics…", none: "Lyrics not available", instrumental: "♪ Instrumental", error: "Couldn't load lyrics" }[lyr.status];
-    if (msg !== undefined) {
+    // Only take up room when there's something to show; otherwise the track info gets the full width.
+    const shown = ["synced", "plain", "instrumental"].includes(lyr.status);
+    $("media-box").classList.toggle("no-lyrics", !S.modules.lyrics.enabled || !shown);
+    const msg = { instrumental: "♪ Instrumental" }[lyr.status];
+    if (!shown || msg !== undefined) {
       $("ly-prev").textContent = "";
       $("ly-cur").textContent = msg;
       $("ly-next").textContent = "";
@@ -446,7 +449,7 @@
     $("m-title").textContent = media.title;
     $("m-artist").textContent = [media.artist, media.album].filter(Boolean).join(" · ");
     $("media-box").classList.toggle("no-art", !(S.modules.media.showArt && artUrl));
-    $("media-box").classList.toggle("no-lyrics", !S.modules.lyrics.enabled);
+    if (!S.modules.lyrics.enabled) $("media-box").classList.add("no-lyrics");
     if (artUrl && $("art").src !== artUrl) $("art").src = artUrl;
     $("b-play").innerHTML = media.playing ? ICON.pause : ICON.play;
     renderSource();
@@ -531,10 +534,13 @@
     if (!v) return;
     volMuted = v.muted;
     $("vol").value = Math.round(v.level * 100);
+    volFill();
     $("vol-btn").innerHTML = v.muted || v.level === 0 ? ICON.mute : ICON.volume;
   }
+  function volFill() { $("vol").style.setProperty("--fill", $("vol").value + "%"); }
   $("vol").oninput = () => {
     clearTimeout(volTimer);
+    volFill();
     const level = $("vol").value / 100;
     $("vol-btn").innerHTML = level === 0 ? ICON.mute : ICON.volume;
     volTimer = setTimeout(() => api.invoke("set_volume", { mic: false, level }), 40);
