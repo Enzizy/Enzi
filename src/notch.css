@@ -481,7 +481,7 @@ body.drag-image .zone { background: rgba(255, 255, 255, 0.04); }
   gap: 12px;
   padding: 12px 18px;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--notch-bg) 92%, transparent);
+  background: var(--notch-bg);
   box-shadow: inset 0 0 0 1px var(--line);
   animation: fadein 0.2s ease;
 }
