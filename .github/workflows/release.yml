@@ -26,6 +26,20 @@ jobs:
             exit 1
           }
 
+      # Fails fast with a readable message instead of after the 5-minute build. Never prints the key.
+      - name: Check the update signing key
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          $fail = { param($msg) Write-Output "::error title=Signing key::$msg"; exit 1 }
+          if (-not $env:KEY) { & $fail "The TAURI_SIGNING_PRIVATE_KEY secret is missing or empty. Add it under Settings > Secrets and variables > Actions > Repository secrets." }
+          try { $text = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:KEY.Trim())) }
+          catch { & $fail "TAURI_SIGNING_PRIVATE_KEY isn't the key file's contents: paste everything inside enzi-updater.key, with nothing added." }
+          if ($text -match "public key") { & $fail "TAURI_SIGNING_PRIVATE_KEY holds the public key (enzi-updater.key.pub). Paste the contents of enzi-updater.key instead." }
+          if ($text -notmatch "secret key") { & $fail "TAURI_SIGNING_PRIVATE_KEY doesn't look like a Tauri signing key. Paste the contents of enzi-updater.key." }
+          Write-Output "Signing key found."
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
