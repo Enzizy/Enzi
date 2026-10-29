@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enzi Music</title>
+  <link rel="stylesheet" href="widget.css">
+  <link rel="stylesheet" href="music.css">
+</head>
+<body class="idle">
+  <div class="card" id="card">
+    <img class="art" id="art" alt="">
+    <div class="info">
+      <div class="title" id="title"></div>
+      <div class="artist" id="artist"></div>
+      <div class="line" id="line"></div>
+    </div>
+    <div class="progress">
+      <span id="cur">0:00</span>
+      <div class="bar" id="bar"><div id="fill"></div></div>
+      <span id="dur">0:00</span>
+    </div>
+    <div class="controls">
+      <button class="cbtn" data-media="previous" id="b-prev" title="Previous"></button>
+      <button class="cbtn big" data-media="toggle" id="b-play" title="Play / pause"></button>
+      <button class="cbtn" data-media="next" id="b-next" title="Next"></button>
+    </div>
+    <div class="lyrics" id="lyrics"><div class="ly-inner" id="ly-inner"></div></div>
+    <div class="empty" id="empty">Nothing playing</div>
+    <div class="tools">
+      <button class="hbtn" id="ly-btn" aria-label="Lyrics"></button>
+      <button class="hbtn" id="close" title="Close the floating player" aria-label="Close"></button>
+    </div>
+    <div class="edge n" data-dir="North"></div><div class="edge s" data-dir="South"></div>
+    <div class="edge e" data-dir="East"></div><div class="edge w" data-dir="West"></div>
+    <div class="edge ne" data-dir="NorthEast"></div><div class="edge nw" data-dir="NorthWest"></div>
+    <div class="edge se" data-dir="SouthEast"></div><div class="edge sw" data-dir="SouthWest"></div>
+    <div class="grip" id="grip" data-dir="SouthWest" title="Drag to resize" aria-hidden="true">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M2 3l11 11M2 7.5l6.5 6.5M2 12l2 2"/>
+      </svg>
+    </div>
+  </div>
+  <script src="shared.js"></script>
+  <script src="music.js"></script>
+</body>
+</html>

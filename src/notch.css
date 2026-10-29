@@ -507,7 +507,10 @@ body.drag-image .zone { background: rgba(255, 255, 255, 0.04); }
 .hdr-info .soon { color: var(--accent); font-weight: 600; }
 
 /* Media: player chip, switcher, volume */
-.m-source-row { position: relative; display: flex; }
+.m-source-row { position: relative; display: flex; align-items: center; gap: 6px; min-height: 18px; }
+.m-pop { margin-left: auto; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600; color: var(--muted); }
+.m-pop:hover { background: var(--chip); color: var(--fg); }
+.m-switch.m-pop-menu { left: auto; right: 0; min-width: 140px; }
 .m-source {
   display: inline-flex;
   align-items: center;

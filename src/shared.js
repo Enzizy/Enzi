@@ -117,6 +117,51 @@ function formatDuration(sec) {
 
 function todayKey(d = new Date()) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
 
+// ---- Lyrics, shared by the notch and the floating music player.
+const trackKey = (m) => (m ? `${m.title}\u0001${m.artist}\u0001${m.album}` : null);
+
+// YouTube-style titles ("Artist - Song (Official Video)") into a clean title and artist for the lookup.
+function cleanTrack(m) {
+  let title = m.title, artist = m.artist || "";
+  title = title.replace(/\s*[([][^)\]]*(official|video|audio|lyric|visuali[sz]er|\bmv\b|\bhd\b|4k|remaster)[^)\]]*[)\]]/gi, "").trim();
+  artist = artist.replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").trim();
+  const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (dash && (!artist || !/spotify/i.test(m.source || ""))) { artist = dash[1]; title = dash[2]; }
+  return { title, artist };
+}
+
+function parseLrc(text) {
+  const out = [];
+  for (const line of text.split(/\r?\n/)) {
+    const tags = [...line.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+    if (!tags.length) continue;
+    const words = line.replace(/\[[^\]]*\]/g, "").trim();
+    for (const t of tags) out.push({ t: +t[1] * 60 + +t[2], text: words || "♪" });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+// Looks up lyrics for a track: { status: "synced" | "plain" | "instrumental" | "none", lines }.
+async function fetchLyrics(media) {
+  const { title, artist } = cleanTrack(media);
+  const res = await api.invoke("fetch_lyrics", { title, artist, album: media.album || "", duration: media.duration || 0 });
+  if (res && res.instrumental) return { status: "instrumental", lines: [] };
+  if (res && res.syncedLyrics) return { status: "synced", lines: parseLrc(res.syncedLyrics) };
+  if (res && res.plainLyrics) return { status: "plain", lines: res.plainLyrics.split(/\r?\n/).filter((l) => l.trim()).map((text) => ({ t: 0, text })) };
+  return { status: "none", lines: [] };
+}
+
+// Index of the line being sung at `pos` seconds. Plain lyrics have no timing, so they advance evenly.
+function lyricIndexAt(lyr, pos, duration, offsetMs) {
+  const lines = lyr.lines;
+  if (!lines.length) return -1;
+  if (lyr.status === "plain") return duration ? Math.min(lines.length - 1, Math.floor((pos / duration) * lines.length)) : 0;
+  const p = pos + offsetMs / 1000;
+  let i = -1;
+  while (i + 1 < lines.length && lines[i + 1].t <= p) i++;
+  return i;
+}
+
 // ---- Backend bridge. Inside Tauri this calls Rust; in a plain browser it uses a mock for previewing.
 const api = (() => {
   const T = window.__TAURI__;

@@ -19,6 +19,7 @@ A customizable notch for the top of your Windows screen. Hover over it to open i
 - **Next meeting**: paste your calendar's private .ics link to see your next meeting, a countdown in the notch, a reminder and a "Join" button for meeting links
 - **Bluetooth**: popups when headphones and other devices connect or disconnect, with battery level when the device reports it
 - **Music extras**: system volume slider, which app is playing (click to switch between players)
+- **Floating music player**: "Pop out ↗" in the music tab (or the tray menu) opens an always-on-top player, with or without lyrics. Resize it from any edge and the layout adapts: a slim strip, art beside the track, or a tall card with scrolling lyrics. The lyrics button on it turns lyrics on or off.
 - **Quick actions**: screenshot, mute microphone, screen color picker (copies the hex code), quiet mode, lock PC
 - **Auto-updates**: Enzi checks GitHub for new versions and installs them with one click
 - **Tuck away**: when a browser (or any window you choose) reaches the top of the screen, the notch slides up so it doesn't cover your tabs. Hover the very top edge to bring it back. Popups still show.

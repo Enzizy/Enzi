@@ -106,6 +106,12 @@ fn media_select(id: Option<String>) {
     media::select(id);
 }
 
+/// The current album art and player, for a window that opens mid-song.
+#[tauri::command]
+fn media_extras() -> Value {
+    media::extras()
+}
+
 /// Speaker (mic = false) or microphone volume: { level 0..1, muted }.
 #[tauri::command]
 async fn get_volume(mic: bool) -> Option<Value> {
@@ -313,12 +319,23 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn open_todo_widget(app: AppHandle) {
-    widget::show(&app);
+    widget::show(&app, &widget::TODO);
 }
 
 #[tauri::command]
 async fn close_todo_widget(app: AppHandle) {
-    widget::close(&app);
+    widget::close(&app, &widget::TODO);
+}
+
+/// The floating music player, with or without lyrics.
+#[tauri::command]
+async fn open_music_widget(app: AppHandle, lyrics: bool) {
+    widget::show_music(&app, lyrics);
+}
+
+#[tauri::command]
+async fn close_music_widget(app: AppHandle) {
+    widget::close(&app, &widget::MUSIC);
 }
 
 #[tauri::command]
@@ -371,8 +388,9 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
     let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", "Show / hide notch", true, None::<&str>)?;
     let todo = MenuItem::with_id(app, "todo-widget", "Floating to-do list", true, None::<&str>)?;
+    let music = MenuItem::with_id(app, "music-widget", "Floating music player", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Enzi", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&settings, &toggle, &todo, &quit])?;
+    let menu = Menu::with_items(app, &[&settings, &toggle, &todo, &music, &quit])?;
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("Enzi")
         .menu(&menu)
@@ -380,7 +398,8 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "settings" => show_settings(app),
             "toggle" => toggle_notch(app),
-            "todo-widget" => widget::show(app),
+            "todo-widget" => widget::show(app, &widget::TODO),
+            "music-widget" => widget::show(app, &widget::MUSIC),
             "quit" => app.exit(0),
             _ => {}
         })
@@ -427,6 +446,9 @@ fn main() {
             save_data,
             open_todo_widget,
             close_todo_widget,
+            open_music_widget,
+            close_music_widget,
+            media_extras,
             app_version,
             check_update,
             install_update,

@@ -208,6 +208,24 @@ fn snapshot(manager: &SessionManager, names: &HashMap<String, (String, Option<St
     Ok(Some(Snapshot { key, source, info, props }))
 }
 
+/// Windows that show what's playing: the notch and the floating music player.
+const VIEWERS: [&str; 2] = ["notch", "music-widget"];
+
+/// The latest album art and player, so a music player opened mid-song can show them straight away
+/// (they're only sent when they change).
+static LAST_EXTRAS: Mutex<(Value, Value)> = Mutex::new((Value::Null, Value::Null));
+
+fn send(app: &AppHandle, event: &str, payload: &Value) {
+    for label in VIEWERS {
+        let _ = app.emit_to(label, event, payload);
+    }
+}
+
+pub fn extras() -> Value {
+    let last = LAST_EXTRAS.lock().unwrap();
+    json!({ "art": last.0, "app": last.1 })
+}
+
 pub fn start(app: AppHandle) {
     thread::spawn(move || {
         let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
@@ -239,22 +257,27 @@ pub fn start(app: AppHandle) {
                 Some(s) => {
                     if s.key != last_key {
                         last_key = s.key.clone();
-                        let _ = app.emit_to("notch", "media-art", thumbnail(&s.props));
+                        let art = json!(thumbnail(&s.props));
+                        send(&app, "media-art", &art);
+                        LAST_EXTRAS.lock().unwrap().0 = art;
                     }
                     if s.source != last_source {
                         last_source = s.source.clone();
                         let (name, icon) = names.get(&s.source).cloned().unwrap_or_default();
-                        let _ = app.emit_to("notch", "media-app", json!({ "id": s.source, "name": name, "icon": icon }));
+                        let player = json!({ "id": s.source, "name": name, "icon": icon });
+                        send(&app, "media-app", &player);
+                        LAST_EXTRAS.lock().unwrap().1 = player;
                     }
-                    let _ = app.emit_to("notch", "media", s.info);
+                    send(&app, "media", &s.info);
                 }
                 None => {
                     if !last_key.is_empty() {
                         last_key.clear();
                         last_source.clear();
-                        let _ = app.emit_to("notch", "media-art", Value::Null);
+                        send(&app, "media-art", &Value::Null);
+                        *LAST_EXTRAS.lock().unwrap() = (Value::Null, Value::Null);
                     }
-                    let _ = app.emit_to("notch", "media", Value::Null);
+                    send(&app, "media", &Value::Null);
                 }
             }
             thread::sleep(Duration::from_millis(500));

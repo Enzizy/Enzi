@@ -339,7 +339,6 @@
   let media = null, artUrl = null, posBase = 0, posAt = 0;
   let lyr = { key: null, status: "idle", lines: [] };
   const lyricsCache = new Map();
-  const trackKey = (m) => (m ? `${m.title}\u0001${m.artist}\u0001${m.album}` : null);
 
   function livePos() {
     if (!media) return 0;
@@ -370,55 +369,23 @@
     }
   }
 
-  function cleanTrack(m) {
-    let title = m.title, artist = m.artist || "";
-    title = title.replace(/\s*[([][^)\]]*(official|video|audio|lyric|visuali[sz]er|\bmv\b|\bhd\b|4k|remaster)[^)\]]*[)\]]/gi, "").trim();
-    artist = artist.replace(/\s*-\s*Topic$/i, "").replace(/VEVO$/i, "").trim();
-    const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
-    if (dash && (!artist || !/spotify/i.test(m.source || ""))) { artist = dash[1]; title = dash[2]; }
-    return { title, artist };
-  }
-
-  function parseLrc(text) {
-    const out = [];
-    for (const line of text.split(/\r?\n/)) {
-      const tags = [...line.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
-      if (!tags.length) continue;
-      const words = line.replace(/\[[^\]]*\]/g, "").trim();
-      for (const t of tags) out.push({ t: +t[1] * 60 + +t[2], text: words || "♪" });
-    }
-    return out.sort((a, b) => a.t - b.t);
-  }
-
   async function loadLyrics() {
     if (!media || !S.modules.lyrics.enabled) return;
     const k = trackKey(media);
     if (lyr.key === k && lyr.status !== "idle") return;
     if (lyricsCache.has(k)) { lyr = lyricsCache.get(k); return; }
     lyr = { key: k, status: "loading", lines: [] };
-    const { title, artist } = cleanTrack(media);
     try {
-      const res = await api.invoke("fetch_lyrics", { title, artist, album: media.album || "", duration: media.duration || 0 });
+      const found = await fetchLyrics(media);
       if (lyr.key !== k) return;
-      if (res && res.instrumental) lyr = { key: k, status: "instrumental", lines: [] };
-      else if (res && res.syncedLyrics) lyr = { key: k, status: "synced", lines: parseLrc(res.syncedLyrics) };
-      else if (res && res.plainLyrics) lyr = { key: k, status: "plain", lines: res.plainLyrics.split(/\r?\n/).filter((l) => l.trim()).map((text) => ({ t: 0, text })) };
-      else lyr = { key: k, status: "none", lines: [] };
+      lyr = { key: k, ...found };
       lyricsCache.set(k, lyr);
     } catch {
       if (lyr.key === k) lyr = { key: k, status: "error", lines: [] };
     }
   }
 
-  function lyricIndex() {
-    const lines = lyr.lines;
-    if (!lines.length) return -1;
-    if (lyr.status === "plain") return media.duration ? Math.min(lines.length - 1, Math.floor((livePos() / media.duration) * lines.length)) : 0;
-    const p = livePos() + S.modules.lyrics.offsetMs / 1000;
-    let i = -1;
-    while (i + 1 < lines.length && lines[i + 1].t <= p) i++;
-    return i;
-  }
+  function lyricIndex() { return lyricIndexAt(lyr, livePos(), media && media.duration, S.modules.lyrics.offsetMs); }
 
   function currentLyric() {
     const i = lyricIndex();
@@ -506,6 +473,7 @@
 
   $("m-source").onclick = (e) => {
     e.stopPropagation();
+    $("m-pop-menu").hidden = true;
     const menu = $("m-switch");
     if (!media || !media.sessions || media.sessions.length < 2) return;
     if (!menu.hidden) { menu.hidden = true; return; }
@@ -523,7 +491,22 @@
     menu.appendChild(auto);
     menu.hidden = false;
   };
-  document.addEventListener("click", () => ($("m-switch").hidden = true));
+  document.addEventListener("click", () => ($("m-switch").hidden = $("m-pop-menu").hidden = true));
+
+  // Floating player: asks whether to bring the lyrics along (unless lyrics are turned off).
+  $("m-pop").onclick = (e) => {
+    e.stopPropagation();
+    $("m-switch").hidden = true;
+    if (!S.modules.lyrics.enabled) return api.invoke("open_music_widget", { lyrics: false });
+    $("m-pop-menu").hidden = !$("m-pop-menu").hidden;
+  };
+  $("m-pop-menu").querySelectorAll("button").forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      $("m-pop-menu").hidden = true;
+      api.invoke("open_music_widget", { lyrics: b.dataset.lyrics === "1" });
+    };
+  });
 
   // System volume slider in the music tab.
   let volMuted = false, volTimer;
