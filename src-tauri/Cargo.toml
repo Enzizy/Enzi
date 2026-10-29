@@ -1,6 +1,6 @@
 [package]
 name = "enzi"
-version = "1.0.3"
+version = "1.0.4"
 description = "A customizable notch for Windows"
 edition = "2021"
 
