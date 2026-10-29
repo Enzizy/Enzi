@@ -41,17 +41,21 @@
     const hasLines = lyr.status === "synced" || lyr.status === "plain";
     const ly = wantLyrics() && (hasLines || lyr.status === "instrumental");
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    // Width of prev + play + next (see .cbtn in music.css) plus the gaps between them.
+    const controls = (s, gap) => 98 * s + 2 * gap;
     let L, Y = "none", art, s;
     if (h < 118) {
       L = "strip";
       if (ly) Y = "line";
-      art = h - 20;
       s = clamp(h / 84, 0.85, 1.05);
+      // The art gives way first, so the buttons never get cut off in a short, narrow window.
+      art = clamp(Math.min(h - 20, w - 40 - controls(s, 2)), 32, h - 20);
     } else if (w >= h * 1.3) {
       L = "row";
       if (ly) Y = !hasLines ? "line" : w >= 540 ? "side" : h >= 230 ? "below" : "line";
       s = clamp(Math.min(h / 140, w / 380), 0.9, 1.3);
       art = Y === "below" ? clamp(w * 0.28, 64, 120 * s) : clamp(Math.min(h - 28, w * 0.36), 56, 300);
+      if (Y !== "side") art = Math.max(40, Math.min(art, w - 42 - controls(s, 6)));
     } else {
       L = "stack";
       s = clamp(w / 300, 0.9, 1.3);
