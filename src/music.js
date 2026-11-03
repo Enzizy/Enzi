@@ -43,6 +43,10 @@
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
     // Width of prev + play + next (see .cbtn in music.css) plus the gaps between them.
     const controls = (s, gap) => 98 * s + 2 * gap;
+    // Height the stacked card needs besides the art; if that leaves no room for the art, use the row instead.
+    const stackS = clamp(w / 300, 0.9, 1.3);
+    const stackY = ly ? (hasLines && h >= 360 ? "below" : "line") : "none";
+    const stackRest = 150 * stackS + (stackY === "below" ? Math.max(90, h * 0.3) : stackY === "line" ? 22 : 0);
     let L, Y = "none", art, s;
     if (h < 118) {
       L = "strip";
@@ -50,7 +54,7 @@
       s = clamp(h / 84, 0.85, 1.05);
       // The art gives way first, so the buttons never get cut off in a short, narrow window.
       art = clamp(Math.min(h - 20, w - 40 - controls(s, 2)), 32, h - 20);
-    } else if (w >= h * 1.3) {
+    } else if (w >= h * 1.3 || h - stackRest < 64) {
       L = "row";
       if (ly) Y = !hasLines ? "line" : w >= 540 ? "side" : h >= 230 ? "below" : "line";
       s = clamp(Math.min(h / 140, w / 380), 0.9, 1.3);
@@ -58,10 +62,9 @@
       if (Y !== "side") art = Math.max(40, Math.min(art, w - 42 - controls(s, 6)));
     } else {
       L = "stack";
-      s = clamp(w / 300, 0.9, 1.3);
-      if (ly) Y = hasLines && h >= 360 ? "below" : "line";
-      const rest = 150 * s + (Y === "below" ? Math.max(90, h * 0.3) : Y === "line" ? 22 : 0);
-      art = clamp(Math.min(w - 28, h - rest), 48, 420);
+      s = stackS;
+      Y = stackY;
+      art = clamp(Math.min(w - 28, h - stackRest), 48, 420);
     }
     document.body.className = [api.real ? "" : "preview", media ? "" : "idle", "L-" + L, "Y-" + Y].join(" ").trim();
     card.style.setProperty("--art", Math.round(art) + "px");
