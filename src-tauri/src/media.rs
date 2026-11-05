@@ -75,7 +75,9 @@ fn stream_to_data_url(reference: &IRandomAccessStreamReference, max: u32) -> Opt
     let mut bytes = vec![0u8; size as usize];
     reader.ReadBytes(&mut bytes).ok()?;
     let mime = stream.ContentType().map(|m| m.to_string()).unwrap_or_default();
-    let mime = if mime.starts_with("image/") { mime } else { "image/png".into() };
+    // Some players report a list ("image/jpeg,image/jpe,image/jpg"), which breaks a data URL.
+    let mime = mime.split(',').next().unwrap_or_default().trim();
+    let mime = if mime.starts_with("image/") { mime } else { "image/png" };
     Some(format!("data:{mime};base64,{}", B64.encode(bytes)))
 }
 
