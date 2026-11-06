@@ -32,6 +32,8 @@ use windows::Win32::System::Threading::{
 const TICKS_PER_SEC: f64 = 10_000_000.0;
 /// Offset between the Windows epoch (1601) and the Unix epoch, in 100 ns ticks.
 const EPOCH_DIFF: i64 = 116_444_736_000_000_000;
+/// How many half-second polls to keep asking for a cover that wasn't ready when the song changed.
+const ART_TRIES: u32 = 20;
 
 /// The player the user picked in the notch; None follows whatever Windows considers current.
 static PREFERRED: Mutex<Option<String>> = Mutex::new(None);
@@ -105,6 +107,8 @@ fn known_name(aumid: &str) -> Option<&'static str> {
         ("deezer", "Deezer"),
         ("youtube", "YouTube Music"),
         ("discord", "Discord"),
+        ("enzi-music", "Enzi Music"),
+        ("com.enzi.music", "Enzi Music"),
     ]
     .iter()
     .find(|(k, _)| id.contains(k))
@@ -153,7 +157,9 @@ fn app_info(aumid: &str) -> (String, Option<String>) {
             }
         }
     }
-    let icon = running_exe(aumid)
+    // Installed, Enzi Music reports its app id, which isn't the name of its exe.
+    let exe = if aumid.eq_ignore_ascii_case("com.enzi.music") { "enzi-music" } else { aumid };
+    let icon = running_exe(exe)
         .and_then(|exe| crate::thumbs::thumbnails(vec![exe], 64).into_iter().next())
         .and_then(|v| v.get("src").and_then(Value::as_str).map(String::from));
     let fallback = aumid.split('!').next().unwrap_or(aumid).trim_end_matches(".exe").to_string();
@@ -233,6 +239,7 @@ pub fn start(app: AppHandle) {
         let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
         let mut mgr: Option<SessionManager> = None;
         let mut last_key = String::new();
+        let mut art_tries = 0;
         let mut last_source = String::new();
         let mut names: HashMap<String, (String, Option<String>)> = HashMap::new();
         loop {
@@ -257,11 +264,20 @@ pub fn start(app: AppHandle) {
             };
             match snap {
                 Some(s) => {
-                    if s.key != last_key {
+                    let changed = s.key != last_key;
+                    if changed {
                         last_key = s.key.clone();
-                        let art = json!(thumbnail(&s.props));
-                        send(&app, "media-art", &art);
-                        LAST_EXTRAS.lock().unwrap().0 = art;
+                        art_tries = ART_TRIES;
+                    }
+                    if art_tries > 0 {
+                        let art = thumbnail(&s.props);
+                        art_tries = if art.is_some() { 0 } else { art_tries - 1 };
+                        // The first try also clears the last song's cover.
+                        if changed || art.is_some() {
+                            let art = json!(art);
+                            send(&app, "media-art", &art);
+                            LAST_EXTRAS.lock().unwrap().0 = art;
+                        }
                     }
                     if s.source != last_source {
                         last_source = s.source.clone();
