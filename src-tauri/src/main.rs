@@ -343,6 +343,16 @@ fn file_info(paths: Vec<String>) -> Vec<Value> {
     store::file_info(&paths)
 }
 
+/// A web page in the default browser (the credits in Settings). Only https: this goes through
+/// Explorer, which would also run a local path or a protocol handler it was given.
+#[tauri::command]
+fn open_link(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("only https links".into());
+    }
+    actions::open_uri(&url)
+}
+
 #[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     system::open_path(&path)
@@ -454,6 +464,7 @@ fn main() {
             install_update,
             file_info,
             open_path,
+            open_link,
             reveal_path,
             open_data_dir,
             open_settings,

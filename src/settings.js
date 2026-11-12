@@ -349,5 +349,12 @@ function render() {
     save();
   };
   document.getElementById("open-data").onclick = () => api.invoke("open_data_dir");
+  // The credit links open in the browser, not inside this window.
+  document.querySelectorAll(".credit a").forEach((a) => {
+    a.onclick = (e) => {
+      e.preventDefault();
+      api.invoke("open_link", { url: a.href });
+    };
+  });
   document.getElementById("quit").onclick = () => api.invoke("quit");
 })();

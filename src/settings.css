@@ -241,7 +241,10 @@ footer { margin-top: 18px; }
 footer button { padding: 7px 14px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); cursor: pointer; }
 footer button:hover { border-color: var(--accent); }
 footer button.danger { color: var(--danger); }
-.note { margin-top: 12px; color: var(--muted); font-size: 12px; }
+.credit { margin-top: 14px; color: var(--muted); font-size: 12px; }
+.credit a { color: var(--fg); font-weight: 600; text-decoration: none; }
+.credit a:hover { color: var(--accent); text-decoration: underline; }
+.note { margin-top: 6px; color: var(--muted); font-size: 12px; }
 .status { margin-top: 6px; color: var(--accent); font-size: 12px; min-height: 16px; }
 
 @media (max-width: 420px) {
