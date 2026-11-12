@@ -1,0 +1,1 @@
+export { default as component } from "../../../../../enzi-music/ui/node_modules/.pnpm/@sveltejs+kit@2.70.3_@svelt_6551a2ad3c06766d13723749e16a2bb4/node_modules/@sveltejs/kit/src/runtime/components/svelte-5/layout.svelte";
