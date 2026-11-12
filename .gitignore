@@ -4,3 +4,6 @@ src-tauri/gen/
 dist/
 .claude/
 .tauri-keys/
+
+# SvelteKit output, from a dev server started in the wrong folder.
+.svelte-kit/
